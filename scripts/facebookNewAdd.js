@@ -46,18 +46,14 @@ async function autoLikeFacebookNewAdd() {
       let clickCount = 0;
       let validPostLikeCount = 0;
       let totalLikeButtonsFound = 0;
+      let consecutiveZeroLikes = 0;
 
       // 改為邊捲動、邊搜尋、邊檢查、邊點擊的完美 Flow
       for (let scroll = 0; scroll < 30; scroll++) {
         if (clickCount >= 300) break; // 若已達標則提早結束迴圈
 
-        // 如果前三次掃描與捲動 (0, 1, 2) 完成後，一個讚都沒按到，就提早撤退
-        if (scroll === 3 && clickCount === 0) {
-          console.log('ℹ️ 前 3 次都沒有按到任何一個讚，判斷近期貼文皆已按過，提早結束...');
-          break;
-        }
-
         console.log(`\n⬇️ 進行第 ${scroll + 1} 次頁面掃描與捲動...`);
+        let likesThisScroll = 0;
         
         // 試圖尋找當下畫面中可見，且「名字是 讚/Like」、「還沒被我們檢查過」的按鈕！
         const likeButtons = await page.$$('div[aria-label="讚"][role="button"]:not([data-checked="true"]), div[aria-label="Like"][role="button"]:not([data-checked="true"])');
@@ -93,6 +89,7 @@ async function autoLikeFacebookNewAdd() {
             await page.waitForTimeout(500);
             await btn.click();
             clickCount++;
+            likesThisScroll++;
             console.log(`👍 成功點擊第 ${clickCount} 個新貼文的讚`);
             
             // 加入延遲，避免短時間大量點擊被 Facebook 封鎖
@@ -104,6 +101,17 @@ async function autoLikeFacebookNewAdd() {
             console.log('⚠️ 處理按鈕時發生錯誤或元素已失效，跳過。');
           }
         } // end of likeButtons loop
+
+        if (likesThisScroll === 0) {
+          consecutiveZeroLikes++;
+        } else {
+          consecutiveZeroLikes = 0;
+        }
+
+        if (consecutiveZeroLikes >= 3) {
+          console.log('ℹ️ 連續 3 次捲動都沒有按到任何一個讚，判斷近期貼文皆已按過，提早結束...');
+          break;
+        }
 
         // 在這一輪檢查完後，往下捲動 1000px 讓新貼文載入，並等待渲染
         await page.evaluate(() => window.scrollBy(0, 1000));
