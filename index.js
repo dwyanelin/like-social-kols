@@ -5,15 +5,13 @@ async function main() {
   const now = new Date().toLocaleString();
   console.log(`\n🚀 [${now}] 開始手動執行自動按讚腳本...`);
 
-  // 先執行 Facebook
-  console.log('👉 1. Facebook...');
-  await autoLikeFacebook();
-
-  console.log('==========================');
+  console.log('👉 同時啟動 Facebook 與 YouTube...');
   
-  // 再執行 YouTube
-  console.log('👉 2. YouTube...');
-  await autoLikeYouTube();
+  // 並行執行 (Parallel Execution)
+  await Promise.all([
+    autoLikeFacebook(),
+    autoLikeYouTube()
+  ]);
 
   console.log(`✅ [${new Date().toLocaleString()}] 所有按讚任務執行結束！`);
 }
