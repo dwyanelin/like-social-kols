@@ -4,6 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
+    "login": "node scripts/login.js",
+    "like:fb": "node -e \"require('dotenv').config(); const f=require('./scripts/facebook'); const {validateSession,parseUrls}=require('./scripts/utils'); if(!validateSession())process.exit(1); f({urls:parseUrls('FB_TARGET_URLS')})\"",
+    "like:yt": "node -e \"require('dotenv').config(); const f=require('./scripts/youtube'); const {validateSession,parseUrls}=require('./scripts/utils'); if(!validateSession())process.exit(1); f({urls:parseUrls('YT_TARGET_URLS')})\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
