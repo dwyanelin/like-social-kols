@@ -1,4 +1,4 @@
-# LikeFbAndYoutube
+# like-social-kols
 
 自動對你支持的 KOL 在 Facebook、YouTube、Instagram、Threads 上按讚，節省每天手動按讚的時間。
 
@@ -23,7 +23,7 @@
 
 ```bash
 git clone <your-repo-url>
-cd likeFbAndYoutube
+cd like-social-kols
 pnpm install
 pnpm exec playwright install chromium   # 下載 Playwright 內建瀏覽器（本機第一次執行需要）
 ```
