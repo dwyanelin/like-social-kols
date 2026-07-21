@@ -59,8 +59,15 @@ cp .env.example .env
 pnpm login-social
 ```
 
-會開啟瀏覽器視窗，依序手動登入 Facebook → Instagram → Threads → YouTube（不用的平台直接按 Enter 跳過），登入狀態會儲存到 `state.json`。
+會開啟一個**專用的常駐 Chrome profile**（`.chrome-profile/`，與你日常的 Chrome 分開），依序處理 Facebook → Instagram → Threads → YouTube：
 
+- 已登入的平台自動跳過
+- 未登入的平台請在視窗中手動登入，**偵測到登入後自動繼續**（不用這個平台按 Enter 跳過）
+- 完成後登入狀態匯出到 `state.json`
+
+因為 session 一直活在專用 profile 裡，**之後 Cookie 過期時再跑一次本指令即可，通常全程不用再輸入帳密**。
+
+> ℹ️ 無法直接使用你日常的 Chrome 視窗（Chrome 136+ 禁止對正式 profile 進行自動化控制），所以需要這個專用 profile，只有第一次要登入。
 > ⚠️ **Facebook 的登入 Cookie 約 90 天過期**，其他平台通常更久。過期時執行結果會明確告訴你哪個平台需要重新登入。
 
 ### 3.（推薦）YouTube 改用官方 API
