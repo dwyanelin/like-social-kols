@@ -56,12 +56,29 @@ cp .env.example .env
 首次使用或 Cookie 過期時，需要手動登入一次：
 
 ```bash
-pnpm login
+pnpm login-social
 ```
 
 會開啟瀏覽器視窗，依序手動登入 Facebook → Instagram → Threads → YouTube（不用的平台直接按 Enter 跳過），登入狀態會儲存到 `state.json`。
 
 > ⚠️ **Facebook 的登入 Cookie 約 90 天過期**，其他平台通常更久。過期時執行結果會明確告訴你哪個平台需要重新登入。
+
+### 3.（推薦）YouTube 改用官方 API
+
+YouTube 支援官方 API 按讚（`videos.rate`），**refresh token 不會像 Cookie 一樣過期**、也不受頁面改版影響，一次設定後幾乎免維護。設定方式：
+
+1. 到 [Google Cloud Console](https://console.cloud.google.com/apis/credentials) 建立專案，啟用 **YouTube Data API v3**
+2. OAuth 同意畫面：User type 選「外部」，「測試使用者」加入你自己的 Google 帳號（測試模式即可，不用送審）
+3. 建立憑證 → OAuth 用戶端 ID → 類型選「**電腦版應用程式**」，把 client id/secret 填入 `.env` 的 `YT_OAUTH_CLIENT_ID` / `YT_OAUTH_CLIENT_SECRET`
+4. 執行授權流程（會開瀏覽器讓你登入要按讚的帳號）：
+
+   ```bash
+   pnpm auth:yt
+   ```
+
+5. 把輸出的 `YT_OAUTH_REFRESH_TOKEN` 填入 `.env`，三個值同時加到 GitHub Secrets
+
+三個環境變數都設定後，主程式會**自動改走 API 模式**（log 會顯示 `[YT-API]`），不再需要 YouTube 的瀏覽器登入。配額：預設每日 10,000 單位，按一個讚 50 單位，每天可按約 190 個，遠超日常需求。
 
 ## 使用
 
@@ -105,6 +122,9 @@ pnpm typecheck          # TypeScript 型別檢查
    | `IG_TARGET_URLS` | Instagram 目標 URL（逗號分隔） |
    | `THREADS_TARGET_URLS` | Threads 目標 URL（逗號分隔） |
    | `*_TARGET_URLS_NEW_ADD` | （選填）各平台新增目標 |
+   | `YT_OAUTH_CLIENT_ID` | （建議）YouTube API 模式的 OAuth client id |
+   | `YT_OAUTH_CLIENT_SECRET` | （建議）YouTube API 模式的 OAuth client secret |
+   | `YT_OAUTH_REFRESH_TOKEN` | （建議）`pnpm auth:yt` 取得的 refresh token |
 
 3. 也可以到 **Actions** 頁面手動點 **Run workflow** 立即觸發。
 
@@ -113,7 +133,7 @@ pnpm typecheck          # TypeScript 型別檢查
 社群平台的登入 Cookie 有時效性（FB 約 90 天，其他平台數月）。當某平台 Cookie 失效時，**workflow 會以失敗結束並在 log 指出是哪個平台**，此時：
 
 ```bash
-pnpm login          # 重新登入失效的平台
+pnpm login-social          # 重新登入失效的平台
 pnpm export-state   # 重新產生 state.b64
 gh secret set STATE_JSON_B64 < state.b64
 ```
@@ -125,7 +145,9 @@ gh secret set STATE_JSON_B64 < state.b64
 ├── scripts/
 │   ├── utils.ts          # 共用工具（逐平台 Cookie 驗證、瀏覽器建立）
 │   ├── facebook.ts       # Facebook 按讚邏輯
-│   ├── youtube.ts        # YouTube 按讚邏輯
+│   ├── youtube.ts        # YouTube 按讚邏輯（瀏覽器模擬，備援）
+│   ├── youtubeApi.ts     # YouTube 按讚邏輯（官方 API，優先）
+│   ├── youtubeAuth.ts    # YouTube OAuth 授權，取得 refresh token
 │   ├── instagram.ts      # Instagram 按讚邏輯
 │   ├── threads.ts        # Threads 按讚邏輯
 │   ├── login.ts          # 手動登入腳本

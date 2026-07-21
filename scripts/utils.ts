@@ -19,7 +19,7 @@ const PLATFORM_AUTH_COOKIES: Record<Platform, { domainPattern: RegExp; names: st
 
 function readState(): { cookies: Cookie[] } | null {
   if (!fs.existsSync('state.json')) {
-    console.error('❌ 未找到 state.json，請先執行 `pnpm login` 登入。');
+    console.error('❌ 未找到 state.json，請先執行 `pnpm login-social` 登入。');
     return null;
   }
   try {
@@ -40,7 +40,7 @@ export function validatePlatformSessions(): Record<Platform, boolean> | null {
 
   const cookies = state.cookies || [];
   if (cookies.length === 0) {
-    console.error('❌ state.json 中沒有任何 Cookie，請重新執行 `pnpm login` 登入。');
+    console.error('❌ state.json 中沒有任何 Cookie，請重新執行 `pnpm login-social` 登入。');
     return null;
   }
 

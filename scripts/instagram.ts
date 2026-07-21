@@ -40,7 +40,7 @@ export async function autoLikeInstagram({ urls, maxPosts = 10 }: InstagramOption
       const loginForm = await page.$('input[name="username"]');
       if (loginForm) {
         console.error('🚫 [IG] 偵測到登入頁！Instagram session 已失效，中止 Instagram 任務。');
-        console.error('   請在本機重新執行 `pnpm login`，再用 `pnpm export-state` 更新 STATE_JSON_B64 Secret。');
+        console.error('   請在本機重新執行 `pnpm login-social`，再用 `pnpm export-state` 更新 STATE_JSON_B64 Secret。');
         process.exitCode = 1;
         break;
       }
@@ -132,7 +132,7 @@ export default autoLikeInstagram;
 if (require.main === module) {
   const sessions = validatePlatformSessions();
   if (!sessions || !sessions.instagram) {
-    console.error('❌ Instagram 登入已失效，請重新執行 `pnpm login`。');
+    console.error('❌ Instagram 登入已失效，請重新執行 `pnpm login-social`。');
     process.exit(1);
   }
   autoLikeInstagram({ urls: parseUrls('IG_TARGET_URLS') });

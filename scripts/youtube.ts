@@ -54,7 +54,7 @@ export async function autoLikeYouTube({ urls, maxVideos = 10 }: YouTubeOptions):
       });
       if (signedOut) {
         console.error('🚫 [YT] 偵測到未登入狀態！YouTube session 已失效，中止 YouTube 任務。');
-        console.error('   請在本機重新執行 `pnpm login`，再用 `pnpm export-state` 更新 STATE_JSON_B64 Secret。');
+        console.error('   請在本機重新執行 `pnpm login-social`，再用 `pnpm export-state` 更新 STATE_JSON_B64 Secret。');
         process.exitCode = 1;
         break;
       }
@@ -144,7 +144,7 @@ export default autoLikeYouTube;
 if (require.main === module) {
   const sessions = validatePlatformSessions();
   if (!sessions || !sessions.youtube) {
-    console.error('❌ YouTube 登入已失效，請重新執行 `pnpm login`。');
+    console.error('❌ YouTube 登入已失效，請重新執行 `pnpm login-social`。');
     process.exit(1);
   }
   autoLikeYouTube({ urls: parseUrls('YT_TARGET_URLS') });

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import autoLikeFacebook from './scripts/facebook';
 import autoLikeYouTube from './scripts/youtube';
+import { autoLikeYouTubeViaApi, hasYouTubeApiCredentials } from './scripts/youtubeApi';
 import autoLikeInstagram from './scripts/instagram';
 import autoLikeThreads from './scripts/threads';
 import { validatePlatformSessions, parseUrls, type Platform } from './scripts/utils';
@@ -8,10 +9,8 @@ import { validatePlatformSessions, parseUrls, type Platform } from './scripts/ut
 async function main(): Promise<void> {
   console.log(`\n🚀 [${new Date().toLocaleString()}] 開始執行自動按讚...`);
 
+  // state.json 缺失/損毀時 sessions 為 null；YT 若走 API 模式則不需要 state.json
   const sessions = validatePlatformSessions();
-  if (!sessions) {
-    process.exit(1);
-  }
 
   const fbUrls = parseUrls('FB_TARGET_URLS');
   const fbNewAddUrls = parseUrls('FB_TARGET_URLS_NEW_ADD');
@@ -34,8 +33,8 @@ async function main(): Promise<void> {
   const skipped: Platform[] = [];
   const canRun = (platform: Platform, hasTargets: boolean): boolean => {
     if (!hasTargets) return false;
-    if (!sessions[platform]) {
-      console.error(`🚫 ${platform} 的登入 Cookie 不存在或已過期，跳過此平台。請重新執行 \`pnpm login\` 並更新 STATE_JSON_B64 Secret。`);
+    if (!sessions || !sessions[platform]) {
+      console.error(`🚫 ${platform} 的登入 Cookie 不存在或已過期，跳過此平台。請重新執行 \`pnpm login-social\` 並更新 STATE_JSON_B64 Secret。`);
       skipped.push(platform);
       return false;
     }
@@ -51,7 +50,13 @@ async function main(): Promise<void> {
       }
     })(),
     (async () => {
-      if (canRun('youtube', ytUrls.length + ytNewAddUrls.length > 0)) {
+      if (ytUrls.length + ytNewAddUrls.length === 0) return;
+      // 優先走官方 API（refresh token 不過期、不受前端改版影響）；沒設定憑證才退回瀏覽器模擬
+      if (hasYouTubeApiCredentials()) {
+        console.log('🔑 偵測到 YouTube OAuth 憑證，使用官方 API 模式。');
+        if (ytUrls.length > 0) await autoLikeYouTubeViaApi({ urls: ytUrls, maxVideos: 10 });
+        if (ytNewAddUrls.length > 0) await autoLikeYouTubeViaApi({ urls: ytNewAddUrls, maxVideos: 50 });
+      } else if (canRun('youtube', true)) {
         if (ytUrls.length > 0) await autoLikeYouTube({ urls: ytUrls, maxVideos: 10 });
         if (ytNewAddUrls.length > 0) await autoLikeYouTube({ urls: ytNewAddUrls, maxVideos: 50 });
       }
@@ -72,7 +77,7 @@ async function main(): Promise<void> {
 
   if (skipped.length > 0) {
     console.error(`\n❌ [${new Date().toLocaleString()}] 執行結束，但以下平台因登入失效被跳過: ${skipped.join(', ')}`);
-    console.error('   請在本機執行 `pnpm login` 重新登入，再執行 `pnpm export-state` 更新 GitHub Secret。');
+    console.error('   請在本機執行 `pnpm login-social` 重新登入，再執行 `pnpm export-state` 更新 GitHub Secret。');
     process.exitCode = 1;
     return;
   }

@@ -42,6 +42,9 @@ jobs:
           FB_TARGET_URLS_NEW_ADD: ${{ secrets.FB_TARGET_URLS_NEW_ADD }}
           YT_TARGET_URLS: ${{ secrets.YT_TARGET_URLS }}
           YT_TARGET_URLS_NEW_ADD: ${{ secrets.YT_TARGET_URLS_NEW_ADD }}
+          YT_OAUTH_CLIENT_ID: ${{ secrets.YT_OAUTH_CLIENT_ID }}
+          YT_OAUTH_CLIENT_SECRET: ${{ secrets.YT_OAUTH_CLIENT_SECRET }}
+          YT_OAUTH_REFRESH_TOKEN: ${{ secrets.YT_OAUTH_REFRESH_TOKEN }}
           IG_TARGET_URLS: ${{ secrets.IG_TARGET_URLS }}
           IG_TARGET_URLS_NEW_ADD: ${{ secrets.IG_TARGET_URLS_NEW_ADD }}
           THREADS_TARGET_URLS: ${{ secrets.THREADS_TARGET_URLS }}

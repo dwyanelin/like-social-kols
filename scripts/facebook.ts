@@ -43,7 +43,7 @@ export async function autoLikeFacebook({ urls, maxScrolls = 10, maxClicks = 30 }
       const loginWall = await page.$('input[name="email"]');
       if (loginWall) {
         console.error('🚫 [FB] 偵測到登入頁！Facebook session 已失效，中止 Facebook 任務。');
-        console.error('   請在本機重新執行 `pnpm login`，再用 `pnpm export-state` 更新 STATE_JSON_B64 Secret。');
+        console.error('   請在本機重新執行 `pnpm login-social`，再用 `pnpm export-state` 更新 STATE_JSON_B64 Secret。');
         process.exitCode = 1;
         break;
       }
@@ -129,7 +129,7 @@ export default autoLikeFacebook;
 if (require.main === module) {
   const sessions = validatePlatformSessions();
   if (!sessions || !sessions.facebook) {
-    console.error('❌ Facebook 登入已失效，請重新執行 `pnpm login`。');
+    console.error('❌ Facebook 登入已失效，請重新執行 `pnpm login-social`。');
     process.exit(1);
   }
   autoLikeFacebook({ urls: parseUrls('FB_TARGET_URLS') });

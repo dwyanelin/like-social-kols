@@ -33,7 +33,7 @@ export async function autoLikeThreads({ urls, maxScrolls = 10, maxClicks = 30 }:
       const loggedIn = await page.$('svg[aria-label="首頁"], svg[aria-label="Home"]');
       if (!loggedIn) {
         console.error('🚫 [Threads] 偵測到未登入狀態！Threads session 已失效，中止 Threads 任務。');
-        console.error('   請在本機重新執行 `pnpm login`，再用 `pnpm export-state` 更新 STATE_JSON_B64 Secret。');
+        console.error('   請在本機重新執行 `pnpm login-social`，再用 `pnpm export-state` 更新 STATE_JSON_B64 Secret。');
         process.exitCode = 1;
         break;
       }
@@ -111,7 +111,7 @@ export default autoLikeThreads;
 if (require.main === module) {
   const sessions = validatePlatformSessions();
   if (!sessions || !sessions.threads) {
-    console.error('❌ Threads 登入已失效，請重新執行 `pnpm login`。');
+    console.error('❌ Threads 登入已失效，請重新執行 `pnpm login-social`。');
     process.exit(1);
   }
   autoLikeThreads({ urls: parseUrls('THREADS_TARGET_URLS') });
