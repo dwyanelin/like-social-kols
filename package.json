@@ -1,14 +1,18 @@
 {
   "name": "likefbandyoutube",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "自動對你支持的 KOL 在 Facebook、YouTube、Instagram、Threads 上按讚",
+  "main": "index.ts",
+  "packageManager": "pnpm@11.9.0",
   "scripts": {
-    "start": "node index.js",
-    "login": "node scripts/login.js",
-    "like:fb": "node -e \"require('dotenv').config(); const f=require('./scripts/facebook'); const {validateSession,parseUrls}=require('./scripts/utils'); if(!validateSession())process.exit(1); f({urls:parseUrls('FB_TARGET_URLS')})\"",
-    "like:yt": "node -e \"require('dotenv').config(); const f=require('./scripts/youtube'); const {validateSession,parseUrls}=require('./scripts/utils'); if(!validateSession())process.exit(1); f({urls:parseUrls('YT_TARGET_URLS')})\"",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "tsx index.ts",
+    "login": "tsx scripts/login.ts",
+    "export-state": "tsx scripts/exportState.ts",
+    "like:fb": "tsx scripts/facebook.ts",
+    "like:yt": "tsx scripts/youtube.ts",
+    "like:ig": "tsx scripts/instagram.ts",
+    "like:threads": "tsx scripts/threads.ts",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
@@ -17,5 +21,10 @@
   "dependencies": {
     "dotenv": "^17.3.1",
     "playwright": "^1.58.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
   }
 }
