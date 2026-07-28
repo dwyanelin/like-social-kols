@@ -1,4 +1,4 @@
-import { createBrowser, createContext, parseUrls, validatePlatformSessions, likeDelayMs } from './utils';
+import { createBrowser, createContext, parseUrls, validatePlatformSessions, humanDelayMs, jitter } from './utils';
 import 'dotenv/config';
 
 export interface FacebookOptions {
@@ -79,13 +79,13 @@ export async function autoLikeFacebook({ urls, maxScrolls = 10, maxClicks = 30 }
 
             await btn.scrollIntoViewIfNeeded();
             await btn.hover();
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(jitter(600));
             await btn.click();
             clickCount++;
             likesThisScroll++;
             console.log(`👍 [FB] 成功點擊第 ${clickCount} 個新貼文的讚`);
 
-            await page.waitForTimeout(likeDelayMs());
+            await page.waitForTimeout(humanDelayMs());
           } catch {
             console.log('⚠️ [FB] 處理按鈕時發生錯誤或元素已失效，跳過。');
           }
@@ -102,8 +102,8 @@ export async function autoLikeFacebook({ urls, maxScrolls = 10, maxClicks = 30 }
           break;
         }
 
-        await page.evaluate(() => window.scrollBy(0, 1000));
-        await page.waitForTimeout(2500);
+        await page.evaluate(dist => window.scrollBy(0, dist), jitter(1000));
+        await page.waitForTimeout(jitter(2500));
       }
 
       console.log(`\n📊 [FB] 總結本次執行:`);

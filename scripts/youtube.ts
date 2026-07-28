@@ -1,4 +1,4 @@
-import { createBrowser, createContext, parseUrls, validatePlatformSessions, likeDelayMs } from './utils';
+import { createBrowser, createContext, parseUrls, validatePlatformSessions, humanDelayMs } from './utils';
 import 'dotenv/config';
 
 export interface YouTubeOptions {
@@ -110,7 +110,7 @@ export async function autoLikeYouTube({ urls, maxVideos = 10 }: YouTubeOptions):
               await likeButton.evaluate(b => (b as HTMLElement).click());
             }
 
-            await page.waitForTimeout(likeDelayMs());
+            await page.waitForTimeout(humanDelayMs());
             console.log(`🎉 [YT] 第 ${i + 1} 支影片按讚成功！`);
             likeCount++;
             notLikedConsecutiveCount = 0;
