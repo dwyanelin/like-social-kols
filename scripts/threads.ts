@@ -1,4 +1,4 @@
-import { createBrowser, createContext, parseUrls, validatePlatformSessions, likeDelayMs } from './utils';
+import { createBrowser, createContext, parseUrls, validatePlatformSessions, humanDelayMs, jitter } from './utils';
 import 'dotenv/config';
 
 export interface ThreadsOptions {
@@ -69,12 +69,12 @@ export async function autoLikeThreads({ urls, maxScrolls = 10, maxClicks = 30 }:
           try {
             await btn.evaluate(el => el.removeAttribute('data-threads-like-target'));
             await btn.scrollIntoViewIfNeeded();
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(jitter(600));
             await btn.click();
             clickCount++;
             likesThisScroll++;
             console.log(`👍 [Threads] 成功點擊第 ${clickCount} 個貼文的讚`);
-            await page.waitForTimeout(likeDelayMs());
+            await page.waitForTimeout(humanDelayMs());
           } catch {
             console.log('⚠️ [Threads] 處理按鈕時發生錯誤或元素已失效，跳過。');
           }
@@ -91,8 +91,8 @@ export async function autoLikeThreads({ urls, maxScrolls = 10, maxClicks = 30 }:
           break;
         }
 
-        await page.evaluate(() => window.scrollBy(0, 1500));
-        await page.waitForTimeout(2500);
+        await page.evaluate(dist => window.scrollBy(0, dist), jitter(1500));
+        await page.waitForTimeout(jitter(2500));
       }
 
       console.log(`\n📊 [Threads] 目標 [${targetUrl}] 結束，共實際按了 ${clickCount} 個讚`);

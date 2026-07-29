@@ -2,14 +2,14 @@ name: Auto Like
 
 on:
   schedule:
-    # UTC 04:00 = 台灣時間中午 12:00
+    # 每天 UTC 04:00（台灣中午 12:00）。搭配下方隨機延遲，避免每天同一秒觸發的機械節奏。
     - cron: '0 4 * * *'
   workflow_dispatch: # 允許手動觸發
 
 jobs:
   auto-like:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
 
     steps:
       - name: Checkout repository
@@ -30,11 +30,19 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
-      - name: Install Playwright Chromium
-        run: pnpm exec playwright install --with-deps chromium
+      # 安裝「真 Google Chrome」而非 Playwright 自帶 Chromium：
+      # 真 Chrome 的 UA / 指紋較不易被 Meta 判為自動化。xvfb 提供虛擬顯示器以跑有頭模式。
+      - name: Install Google Chrome + xvfb
+        run: |
+          pnpm exec playwright install --with-deps chrome
+          sudo apt-get install -y xvfb
 
       - name: Restore login state
         run: echo "${{ secrets.STATE_JSON_B64 }}" | base64 -d | gunzip > state.json
+
+      # 隨機延遲 0~20 分鐘再開跑，讓每次觸發時間不固定，降低機械節奏特徵。
+      - name: Random start delay
+        run: sleep $((RANDOM % 1200))
 
       - name: Run auto-like
         env:
@@ -49,6 +57,12 @@ jobs:
           IG_TARGET_URLS_NEW_ADD: ${{ secrets.IG_TARGET_URLS_NEW_ADD }}
           THREADS_TARGET_URLS: ${{ secrets.THREADS_TARGET_URLS }}
           THREADS_TARGET_URLS_NEW_ADD: ${{ secrets.THREADS_TARGET_URLS_NEW_ADD }}
-          HEADLESS: 'true'
-          DELAY_MS: '2000'
-        run: pnpm start
+          # 有頭 + 真 Chrome + 台灣時區（見 scripts/utils.ts）
+          HEADLESS: 'false'
+          BROWSER_CHANNEL: 'chrome'
+          TZ: 'Asia/Taipei'
+          # 擬人化隨機間隔（毫秒）
+          DELAY_MIN_MS: '2000'
+          DELAY_MAX_MS: '5000'
+        # xvfb-run 提供虛擬顯示器，讓有頭 Chrome 能在無螢幕的 runner 上執行
+        run: xvfb-run --auto-servernum pnpm start

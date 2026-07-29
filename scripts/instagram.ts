@@ -1,4 +1,4 @@
-import { createBrowser, createContext, parseUrls, validatePlatformSessions, likeDelayMs } from './utils';
+import { createBrowser, createContext, parseUrls, validatePlatformSessions, humanDelayMs, jitter } from './utils';
 import 'dotenv/config';
 
 export interface InstagramOptions {
@@ -72,7 +72,7 @@ export async function autoLikeInstagram({ urls, maxPosts = 10 }: InstagramOption
       for (let i = 0; i < targets.length; i++) {
         console.log(`▶️ [IG] 準備進入第 ${i + 1} 則貼文...`);
         await page.goto(new URL(targets[i], 'https://www.instagram.com').href, { waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(3000);
+        await page.waitForTimeout(jitter(3000));
 
         // 找出「主」按讚按鈕（尺寸夠大的那顆），排除留言區的小讚
         const state = await page.evaluate((minSize) => {
@@ -97,7 +97,7 @@ export async function autoLikeInstagram({ urls, maxPosts = 10 }: InstagramOption
           try {
             console.log(`👍 [IG] 正在點擊第 ${i + 1} 則貼文的讚...`);
             await page.click('[data-ig-like-target="true"]', { timeout: 5000 });
-            await page.waitForTimeout(likeDelayMs());
+            await page.waitForTimeout(humanDelayMs());
             console.log(`🎉 [IG] 第 ${i + 1} 則貼文按讚成功！`);
             likeCount++;
             alreadyLikedConsecutive = 0;
