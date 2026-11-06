@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "description": "自動對你支持的 KOL 在 Facebook、YouTube、Instagram、Threads 上按讚",
   "main": "index.ts",
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@12.18.0",
   "scripts": {
     "start": "tsx index.ts",
     "login-social": "tsx scripts/login.ts",
