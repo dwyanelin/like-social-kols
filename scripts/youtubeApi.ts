@@ -50,7 +50,7 @@ async function apiFetch(token: string, method: 'GET' | 'POST', path: string, par
 
 /** 從頻道 URL 解析出 channels.list 的查詢參數（支援 @handle 與 /channel/UC... 兩種格式） */
 function channelParamsFromUrl(targetUrl: string): Record<string, string> | null {
-  const path = new URL(targetUrl).pathname;
+  const path = decodeURIComponent(new URL(targetUrl).pathname);
   const handleMatch = path.match(/^\/(@[^/]+)/);
   if (handleMatch) return { forHandle: handleMatch[1] };
   const idMatch = path.match(/^\/channel\/([^/]+)/);
