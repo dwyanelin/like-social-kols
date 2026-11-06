@@ -14,8 +14,8 @@
 
 ## 前置需求
 
-- [Node.js](https://nodejs.org/) 22+
-- [pnpm](https://pnpm.io/) 11+（`npm install -g pnpm`）
+- [Node.js](https://nodejs.org/) 26+
+- [pnpm](https://pnpm.io/) 12+（`npm install -g pnpm`）
 - 系統已安裝 Google Chrome（本機登入用）
 - Facebook / Google / Instagram / Threads 帳號
 

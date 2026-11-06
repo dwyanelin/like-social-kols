@@ -39,10 +39,21 @@ export async function autoLikeFacebook({ urls, maxScrolls = 10, maxClicks = 30 }
       console.log('⏳ [FB] 正在等待頁面載入內容...');
       await page.waitForTimeout(3000);
 
-      // 未登入偵測：出現登入表單就代表 session 失效，繼續跑只是浪費時間
-      const loginWall = await page.$('input[name="email"]');
-      if (loginWall) {
-        console.error('🚫 [FB] 偵測到登入頁！Facebook session 已失效，中止 Facebook 任務。');
+      // 未登入 / 風控 Checkpoint 偵測：
+      // 1. 若被導向 /checkpoint/、/login/、/recover/，代表觸發 Meta 安全驗證或被強制登出
+      // 2. 若頁面出現 email 登入欄或頂部「登入」按鈕，代表 session 已失效
+      // 必須立即中止，否則繼續連刷後面十幾個粉專會大幅加重帳號風控！
+      const currentUrl = page.url();
+      const isCheckpoint = /\/(checkpoint|login|recover|two_step_verification)\b/i.test(currentUrl);
+      const loginWall = await page.$(
+        'input[name="email"], div[role="dialog"] input[name="pass"], [aria-label="登入"][role="button"], [aria-label="Log In"][role="button"]'
+      );
+      if (isCheckpoint || loginWall) {
+        if (isCheckpoint) {
+          console.error(`🚫 [FB] 偵測到 Meta 安全驗證 (Checkpoint: ${currentUrl})！為保護帳號立即中止 Facebook 任務。`);
+        } else {
+          console.error('🚫 [FB] 偵測到登入頁！Facebook session 已失效，中止 Facebook 任務。');
+        }
         console.error('   請在本機重新執行 `pnpm login-social`，再用 `pnpm export-state` 更新 STATE_JSON_B64 Secret。');
         process.exitCode = 1;
         break;
