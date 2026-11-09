@@ -21,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '26'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -30,39 +30,20 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
-      # 安裝「真 Google Chrome」而非 Playwright 自帶 Chromium：
-      # 真 Chrome 的 UA / 指紋較不易被 Meta 判為自動化。xvfb 提供虛擬顯示器以跑有頭模式。
-      - name: Install Google Chrome + xvfb
-        run: |
-          pnpm exec playwright install --with-deps chrome
-          sudo apt-get install -y xvfb
-
-      - name: Restore login state
-        run: echo "${{ secrets.STATE_JSON_B64 }}" | base64 -d | gunzip > state.json
-
-      # 隨機延遲 0~20 分鐘再開跑，讓每次觸發時間不固定，降低機械節奏特徵。
+      # 隨機延遲 0~20 分鐘再開跑，讓每次觸發時間不固定，降低機械節奏特徵（手動觸發時跳過）。
       - name: Random start delay
+        if: github.event_name == 'schedule'
         run: sleep $((RANDOM % 1200))
 
-      - name: Run auto-like
+      # Meta 三平台（FB / IG / Threads）因雲端機房 IP 必遭 Meta 風控攔截，已改由本機 macOS launchd 排程執行；
+      # GitHub Actions 僅執行官方 OAuth API 模式的 YouTube 自動按讚。
+      - name: Run auto-like (YouTube API)
         env:
-          FB_TARGET_URLS: ${{ secrets.FB_TARGET_URLS }}
-          FB_TARGET_URLS_NEW_ADD: ${{ secrets.FB_TARGET_URLS_NEW_ADD }}
+          SKIP_META: 'true'
           YT_TARGET_URLS: ${{ secrets.YT_TARGET_URLS }}
           YT_TARGET_URLS_NEW_ADD: ${{ secrets.YT_TARGET_URLS_NEW_ADD }}
           YT_OAUTH_CLIENT_ID: ${{ secrets.YT_OAUTH_CLIENT_ID }}
           YT_OAUTH_CLIENT_SECRET: ${{ secrets.YT_OAUTH_CLIENT_SECRET }}
           YT_OAUTH_REFRESH_TOKEN: ${{ secrets.YT_OAUTH_REFRESH_TOKEN }}
-          IG_TARGET_URLS: ${{ secrets.IG_TARGET_URLS }}
-          IG_TARGET_URLS_NEW_ADD: ${{ secrets.IG_TARGET_URLS_NEW_ADD }}
-          THREADS_TARGET_URLS: ${{ secrets.THREADS_TARGET_URLS }}
-          THREADS_TARGET_URLS_NEW_ADD: ${{ secrets.THREADS_TARGET_URLS_NEW_ADD }}
-          # 有頭 + 真 Chrome + 台灣時區（見 scripts/utils.ts）
-          HEADLESS: 'false'
-          BROWSER_CHANNEL: 'chrome'
           TZ: 'Asia/Taipei'
-          # 擬人化隨機間隔（毫秒）
-          DELAY_MIN_MS: '2000'
-          DELAY_MAX_MS: '5000'
-        # xvfb-run 提供虛擬顯示器，讓有頭 Chrome 能在無螢幕的 runner 上執行
-        run: xvfb-run --auto-servernum pnpm start
+        run: pnpm start
