@@ -4,4 +4,5 @@ node_modules/
 .env
 state.json
 state.b64
+logs/
 .DS_Store
