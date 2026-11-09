@@ -9,17 +9,26 @@ import { validatePlatformSessions, parseUrls, type Platform } from './scripts/ut
 async function main(): Promise<void> {
   console.log(`\n🚀 [${new Date().toLocaleString()}] 開始執行自動按讚...`);
 
-  // state.json 缺失/損毀時 sessions 為 null；YT 若走 API 模式則不需要 state.json
-  const sessions = validatePlatformSessions();
+  const skipYouTube = process.env.SKIP_YOUTUBE === 'true';
+  const skipMeta = process.env.SKIP_META === 'true';
 
-  const fbUrls = parseUrls('FB_TARGET_URLS');
-  const fbNewAddUrls = parseUrls('FB_TARGET_URLS_NEW_ADD');
-  const ytUrls = parseUrls('YT_TARGET_URLS');
-  const ytNewAddUrls = parseUrls('YT_TARGET_URLS_NEW_ADD');
-  const igUrls = parseUrls('IG_TARGET_URLS');
-  const igNewAddUrls = parseUrls('IG_TARGET_URLS_NEW_ADD');
-  const threadsUrls = parseUrls('THREADS_TARGET_URLS');
-  const threadsNewAddUrls = parseUrls('THREADS_TARGET_URLS_NEW_ADD');
+  const fbUrls = skipMeta ? [] : parseUrls('FB_TARGET_URLS');
+  const fbNewAddUrls = skipMeta ? [] : parseUrls('FB_TARGET_URLS_NEW_ADD');
+  const ytUrls = skipYouTube ? [] : parseUrls('YT_TARGET_URLS');
+  const ytNewAddUrls = skipYouTube ? [] : parseUrls('YT_TARGET_URLS_NEW_ADD');
+  const igUrls = skipMeta ? [] : parseUrls('IG_TARGET_URLS');
+  const igNewAddUrls = skipMeta ? [] : parseUrls('IG_TARGET_URLS_NEW_ADD');
+  const threadsUrls = skipMeta ? [] : parseUrls('THREADS_TARGET_URLS');
+  const threadsNewAddUrls = skipMeta ? [] : parseUrls('THREADS_TARGET_URLS_NEW_ADD');
+
+  const needsBrowserSession =
+    fbUrls.length + fbNewAddUrls.length +
+    igUrls.length + igNewAddUrls.length +
+    threadsUrls.length + threadsNewAddUrls.length > 0 ||
+    (ytUrls.length + ytNewAddUrls.length > 0 && !hasYouTubeApiCredentials());
+
+  // 僅在有平台需要瀏覽器 Cookie 時才驗證 state.json；純 YT API 模式不需要 state.json
+  const sessions = needsBrowserSession ? validatePlatformSessions() : null;
 
   console.log(
     `📋 目標總覽: FB ${fbUrls.length}+${fbNewAddUrls.length} 個 | ` +

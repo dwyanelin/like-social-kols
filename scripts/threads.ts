@@ -100,6 +100,9 @@ export async function autoLikeThreads({ urls, maxScrolls = 10, maxClicks = 30 }:
   } catch (error) {
     console.error('❌ Threads 腳本發生錯誤:', error);
   } finally {
+    if (!process.exitCode) {
+      await context.storageState({ path: 'state.json' }).catch(() => {});
+    }
     await browser.close();
     console.log('✅ Threads 任務結束');
   }

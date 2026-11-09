@@ -6,6 +6,8 @@
   "packageManager": "pnpm@12.18.0",
   "scripts": {
     "start": "tsx index.ts",
+    "start:meta": "SKIP_YOUTUBE=true tsx index.ts",
+    "setup:launchd": "tsx scripts/setupLaunchd.ts",
     "login-social": "tsx scripts/login.ts",
     "auth:yt": "tsx scripts/youtubeAuth.ts",
     "export-state": "tsx scripts/exportState.ts",
