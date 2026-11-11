@@ -1,4 +1,4 @@
-import { createBrowser, createContext, parseUrls, validatePlatformSessions, humanDelayMs, jitter } from './utils';
+import { createBrowser, createContext, saveStorageState, parseUrls, validatePlatformSessions, humanDelayMs, jitter } from './utils';
 import 'dotenv/config';
 
 export interface FacebookOptions {
@@ -131,7 +131,7 @@ export async function autoLikeFacebook({ urls, maxScrolls = 10, maxClicks = 30 }
     process.exitCode = 1;
   } finally {
     if (!process.exitCode) {
-      await context.storageState({ path: 'state.json' }).catch(() => {});
+      await saveStorageState(context);
     }
     await browser.close();
     console.log('✅ Facebook 任務結束');

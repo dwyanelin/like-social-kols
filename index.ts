@@ -15,15 +15,18 @@ async function main(): Promise<void> {
 
   const skipYouTube = process.env.SKIP_YOUTUBE === 'true';
   const skipMeta = process.env.SKIP_META === 'true';
+  const skipFacebook = skipMeta || process.env.SKIP_FACEBOOK === 'true';
+  const skipInstagram = skipMeta || process.env.SKIP_INSTAGRAM === 'true';
+  const skipThreads = skipMeta || process.env.SKIP_THREADS === 'true';
 
-  const fbUrls = skipMeta ? [] : parseUrls('FB_TARGET_URLS');
-  const fbNewAddUrls = skipMeta ? [] : parseUrls('FB_TARGET_URLS_NEW_ADD');
+  const fbUrls = skipFacebook ? [] : parseUrls('FB_TARGET_URLS');
+  const fbNewAddUrls = skipFacebook ? [] : parseUrls('FB_TARGET_URLS_NEW_ADD');
   const ytUrls = skipYouTube ? [] : parseUrls('YT_TARGET_URLS');
   const ytNewAddUrls = skipYouTube ? [] : parseUrls('YT_TARGET_URLS_NEW_ADD');
-  const igUrls = skipMeta ? [] : parseUrls('IG_TARGET_URLS');
-  const igNewAddUrls = skipMeta ? [] : parseUrls('IG_TARGET_URLS_NEW_ADD');
-  const threadsUrls = skipMeta ? [] : parseUrls('THREADS_TARGET_URLS');
-  const threadsNewAddUrls = skipMeta ? [] : parseUrls('THREADS_TARGET_URLS_NEW_ADD');
+  const igUrls = skipInstagram ? [] : parseUrls('IG_TARGET_URLS');
+  const igNewAddUrls = skipInstagram ? [] : parseUrls('IG_TARGET_URLS_NEW_ADD');
+  const threadsUrls = skipThreads ? [] : parseUrls('THREADS_TARGET_URLS');
+  const threadsNewAddUrls = skipThreads ? [] : parseUrls('THREADS_TARGET_URLS_NEW_ADD');
 
   const needsBrowserSession =
     fbUrls.length + fbNewAddUrls.length +
@@ -47,6 +50,10 @@ async function main(): Promise<void> {
   const canRun = (platform: Platform, hasTargets: boolean): boolean => {
     if (!hasTargets) return false;
     if (!sessions || !sessions[platform]) {
+      // 若 Threads 尚未有獨立 sessionid 但 Instagram 已登入，允許進入 autoLikeThreads 自動執行 IG 連動登入
+      if (platform === 'threads' && sessions?.instagram) {
+        return true;
+      }
       console.error(`🚫 ${platform} 的登入 Cookie 不存在或已過期，跳過此平台。請重新執行 \`pnpm login-social\` 並更新 STATE_JSON_B64 Secret。`);
       skipped.push(platform);
       return false;
@@ -76,8 +83,8 @@ async function main(): Promise<void> {
     })(),
     (async () => {
       if (canRun('instagram', igUrls.length + igNewAddUrls.length > 0)) {
-        if (igUrls.length > 0) await autoLikeInstagram({ urls: igUrls, maxPosts: 10 });
-        if (igNewAddUrls.length > 0) await autoLikeInstagram({ urls: igNewAddUrls, maxPosts: 50 });
+        if (igUrls.length > 0) await autoLikeInstagram({ urls: igUrls, maxScrolls: 10, maxClicks: 30 });
+        if (igNewAddUrls.length > 0) await autoLikeInstagram({ urls: igNewAddUrls, maxScrolls: 30, maxClicks: 300 });
       }
     })(),
     (async () => {
