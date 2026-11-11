@@ -30,13 +30,8 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
-      # 隨機延遲 0~20 分鐘再開跑，讓每次觸發時間不固定，降低機械節奏特徵（手動觸發時跳過）。
-      - name: Random start delay
-        if: github.event_name == 'schedule'
-        run: sleep $((RANDOM % 1200))
-
       # Meta 三平台（FB / IG / Threads）因雲端機房 IP 必遭 Meta 風控攔截，已改由本機 macOS launchd 排程執行；
-      # GitHub Actions 僅執行官方 OAuth API 模式的 YouTube 自動按讚。
+      # GitHub Actions 僅執行官方 OAuth API 模式的 YouTube 自動按讚（官方 API 無需隨機等待延遲）。
       - name: Run auto-like (YouTube API)
         env:
           SKIP_META: 'true'
