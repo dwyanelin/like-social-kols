@@ -5,8 +5,13 @@ export type Platform = 'facebook' | 'youtube' | 'instagram' | 'threads';
 
 interface Cookie {
   name: string;
+  value?: string;
   domain: string;
+  path?: string;
   expires: number;
+  httpOnly?: boolean;
+  secure?: boolean;
+  sameSite?: 'Strict' | 'Lax' | 'None';
 }
 
 /** 各平台判斷「登入是否有效」的關鍵 Cookie */
@@ -17,7 +22,7 @@ const PLATFORM_AUTH_COOKIES: Record<Platform, { domainPattern: RegExp; names: st
   threads: { domainPattern: /threads\.(com|net)$/, names: ['sessionid'] },
 };
 
-function readState(): { cookies: Cookie[] } | null {
+function readState(): { cookies: Cookie[]; origins?: unknown[] } | null {
   if (!fs.existsSync('state.json')) {
     console.error('❌ 未找到 state.json，請先執行 `pnpm login-social` 登入。');
     return null;
@@ -78,13 +83,45 @@ export async function createBrowser(): Promise<Browser> {
 
 /** 建立已載入登入狀態的瀏覽器 Context */
 export async function createContext(browser: Browser): Promise<BrowserContext> {
-  return browser.newContext({
+  const context = await browser.newContext({
     storageState: 'state.json',
     locale: 'zh-TW',
     // 與 zh-TW 語系一致，避免「台灣語系卻在 UTC 機房時區」這種自相矛盾的指紋
     timezoneId: 'Asia/Taipei',
     viewport: { width: 1280, height: 900 },
   });
+  // 防止 tsx / esbuild 編譯時注入的 __name 在 page.evaluate 瀏覽器環境中拋出 ReferenceError
+  await context.addInitScript('window.__name = (fn) => fn;');
+  return context;
+}
+
+/**
+ * 將目前 BrowserContext 的 Cookie 與磁碟上的 state.json 合併寫回，
+ * 避免多平台平行執行時互相覆蓋其他平台的最新 Cookie。
+ */
+export async function saveStorageState(context: BrowserContext): Promise<void> {
+  try {
+    const currentCookies = await context.cookies();
+    const existing = fs.existsSync('state.json')
+      ? JSON.parse(fs.readFileSync('state.json', 'utf8'))
+      : { cookies: [], origins: [] };
+
+    const cookieMap = new Map<string, Cookie>();
+    for (const c of existing.cookies || []) {
+      cookieMap.set(`${c.domain}|${c.path || '/'}|${c.name}`, c);
+    }
+    for (const c of currentCookies || []) {
+      cookieMap.set(`${c.domain}|${c.path || '/'}|${c.name}`, c);
+    }
+
+    const merged = {
+      cookies: Array.from(cookieMap.values()),
+      origins: existing.origins || [],
+    };
+    fs.writeFileSync('state.json', JSON.stringify(merged, null, 2));
+  } catch {
+    // 忽略儲存過程中的非致命錯誤
+  }
 }
 
 /** 從環境變數解析 URL 陣列 */
