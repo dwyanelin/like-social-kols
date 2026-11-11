@@ -128,6 +128,7 @@ export async function autoLikeFacebook({ urls, maxScrolls = 10, maxClicks = 30 }
     }
   } catch (error) {
     console.error('❌ Facebook 腳本發生錯誤:', error);
+    process.exitCode = 1;
   } finally {
     if (!process.exitCode) {
       await context.storageState({ path: 'state.json' }).catch(() => {});

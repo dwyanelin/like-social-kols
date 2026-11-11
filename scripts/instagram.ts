@@ -120,6 +120,7 @@ export async function autoLikeInstagram({ urls, maxPosts = 10 }: InstagramOption
     }
   } catch (error) {
     console.error('❌ Instagram 腳本發生錯誤:', error);
+    process.exitCode = 1;
   } finally {
     if (!process.exitCode) {
       await context.storageState({ path: 'state.json' }).catch(() => {});
