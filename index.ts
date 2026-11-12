@@ -61,12 +61,13 @@ async function main(): Promise<void> {
     return true;
   };
 
-  // 各平台並行執行；同平台內 regular → new-add 依序執行
+  // Facebook 與 YouTube 獨立並行；Instagram 與 Threads 因共用同一組 Meta/IG 帳號後端，
+  // 改為在同一條執行流中依序執行（避免雙視窗同時發送 GraphQL 按讚請求導致頻率翻倍而觸發風控）
   await Promise.all([
     (async () => {
       if (canRun('facebook', fbUrls.length + fbNewAddUrls.length > 0)) {
-        if (fbUrls.length > 0) await autoLikeFacebook({ urls: fbUrls, maxScrolls: 10, maxClicks: 30 });
-        if (fbNewAddUrls.length > 0) await autoLikeFacebook({ urls: fbNewAddUrls, maxScrolls: 30, maxClicks: 300 });
+        if (fbUrls.length > 0) await autoLikeFacebook({ urls: fbUrls, maxScrolls: 8, maxClicks: 15 });
+        if (fbNewAddUrls.length > 0) await autoLikeFacebook({ urls: fbNewAddUrls, maxScrolls: 12, maxClicks: 25 });
       }
     })(),
     (async () => {
@@ -83,14 +84,12 @@ async function main(): Promise<void> {
     })(),
     (async () => {
       if (canRun('instagram', igUrls.length + igNewAddUrls.length > 0)) {
-        if (igUrls.length > 0) await autoLikeInstagram({ urls: igUrls, maxScrolls: 10, maxClicks: 30 });
-        if (igNewAddUrls.length > 0) await autoLikeInstagram({ urls: igNewAddUrls, maxScrolls: 30, maxClicks: 300 });
+        if (igUrls.length > 0) await autoLikeInstagram({ urls: igUrls, maxScrolls: 5, maxClicks: 10 });
+        if (igNewAddUrls.length > 0) await autoLikeInstagram({ urls: igNewAddUrls, maxScrolls: 10, maxClicks: 20 });
       }
-    })(),
-    (async () => {
       if (canRun('threads', threadsUrls.length + threadsNewAddUrls.length > 0)) {
-        if (threadsUrls.length > 0) await autoLikeThreads({ urls: threadsUrls, maxScrolls: 10, maxClicks: 30 });
-        if (threadsNewAddUrls.length > 0) await autoLikeThreads({ urls: threadsNewAddUrls, maxScrolls: 30, maxClicks: 300 });
+        if (threadsUrls.length > 0) await autoLikeThreads({ urls: threadsUrls, maxScrolls: 5, maxClicks: 10 });
+        if (threadsNewAddUrls.length > 0) await autoLikeThreads({ urls: threadsNewAddUrls, maxScrolls: 10, maxClicks: 20 });
       }
     })(),
   ]);
