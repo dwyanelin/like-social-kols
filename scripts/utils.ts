@@ -133,15 +133,39 @@ export function parseUrls(envVar: string): string[] {
 
 /**
  * 每次按讚之間的「擬人化」隨機間隔（毫秒）。
- * 固定間隔的機械節奏是自動化偵測的明顯特徵，改為在 [DELAY_MIN_MS, DELAY_MAX_MS]
- * 之間隨機取值（預設 2~5 秒）。
+ * 固定間隔或過短間隔（如 2~5 秒連刷數百讚）極易觸發 Meta 防刷風控（愛心彈回 / code 5004002）。
+ * 預設改為 4~9 秒，並可透過根據已點擊次數呼叫 humanLikePauseMs 插入長停頓。
  */
 export function humanDelayMs(): number {
-  const min = parseInt(process.env.DELAY_MIN_MS || '', 10) || 2000;
-  const max = parseInt(process.env.DELAY_MAX_MS || '', 10) || 5000;
+  const min = parseInt(process.env.DELAY_MIN_MS || '', 10) || 4000;
+  const max = parseInt(process.env.DELAY_MAX_MS || '', 10) || 9000;
   const lo = Math.min(min, max);
   const hi = Math.max(min, max);
   return lo + Math.floor(Math.random() * (hi - lo + 1));
+}
+
+/**
+ * 根據目前已按讚數決定停頓時間：
+ * 每按滿 8 個讚額外插入一段 8~15 秒的「閱讀停頓」，避免長時間等頻率點擊觸發 Meta 速率限制。
+ */
+export function humanLikePauseMs(clickCount: number): number {
+  const base = humanDelayMs();
+  if (clickCount > 0 && clickCount % 8 === 0) {
+    const extra = 8000 + Math.floor(Math.random() * 7000);
+    return base + extra;
+  }
+  return base;
+}
+
+/**
+ * 切換不同 KOL 目標帳號之間的緩衝時間（毫秒）：
+ * 若剛才在該帳號有實際按讚，休息 6~12 秒再切換；若全部已按過讚則僅短暫停頓 1.5~3 秒。
+ */
+export function betweenTargetsDelayMs(clickedInTarget: number): number {
+  if (clickedInTarget > 0) {
+    return 6000 + Math.floor(Math.random() * 6000);
+  }
+  return 1500 + Math.floor(Math.random() * 1500);
 }
 
 /** 在基準值附近加入 ±ratio 抖動，用於捲動距離、等待時間等原本寫死的數值。 */

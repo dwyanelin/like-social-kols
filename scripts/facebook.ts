@@ -1,12 +1,23 @@
-import { createBrowser, createContext, saveStorageState, parseUrls, validatePlatformSessions, humanDelayMs, jitter } from './utils';
+import {
+  createBrowser,
+  createContext,
+  saveStorageState,
+  parseUrls,
+  validatePlatformSessions,
+  humanLikePauseMs,
+  betweenTargetsDelayMs,
+  jitter,
+} from './utils';
 import 'dotenv/config';
 
 export interface FacebookOptions {
   urls: string[];
   /** 最大捲動次數 */
   maxScrolls?: number;
-  /** 最大按讚數 */
+  /** 單一帳號最大按讚數 */
   maxClicks?: number;
+  /** 單次執行總按讚安全上限 */
+  maxSessionClicks?: number;
 }
 
 // FB 貼文動作列的按讚按鈕 aria-label 已改版：
@@ -19,30 +30,75 @@ const LIKE_BUTTON_SELECTOR = [
   'div[aria-label="Like"][role="button"]:not([data-checked="true"])',
 ].join(', ');
 
-export async function autoLikeFacebook({ urls, maxScrolls = 10, maxClicks = 30 }: FacebookOptions): Promise<void> {
+export async function autoLikeFacebook({
+  urls,
+  maxScrolls = 8,
+  maxClicks = 15,
+  maxSessionClicks,
+}: FacebookOptions): Promise<void> {
   if (!urls || urls.length === 0) {
     console.log('ℹ️ 沒有 Facebook 目標 URL，跳過。');
     return;
   }
 
-  console.log(`🤖 啟動 Facebook 自動按讚，共 ${urls.length} 個目標 (最多捲動 ${maxScrolls} 次、按 ${maxClicks} 個讚)...`);
+  const sessionCap =
+    maxSessionClicks ?? (parseInt(process.env.FB_MAX_LIKES_PER_RUN || '', 10) || 150);
+
+  console.log(
+    `🤖 啟動 Facebook 自動按讚，共 ${urls.length} 個目標 (每帳號最多捲動 ${maxScrolls} 次、按 ${maxClicks} 讚；單次執行安全上限 ${sessionCap} 讚)...`
+  );
 
   const browser = await createBrowser();
   const context = await createContext(browser);
   const page = await context.newPage();
 
+  // 監聽 Facebook 後端 GraphQL 回應是否包含風控攔截 (sentry_block_data / 1404078 / 368)
+  let lastLikeApiError: string | null = null;
+  page.on('response', async res => {
+    try {
+      const url = res.url();
+      if (res.request().method() === 'POST' && url.includes('/api/graphql')) {
+        const status = res.status();
+        if (status === 429 || status === 400 || status === 403) {
+          lastLikeApiError = `HTTP ${status}`;
+          return;
+        }
+        const text = await res.text();
+        if (
+          text.includes('"sentry_block_data"') ||
+          text.includes('1404078') ||
+          text.includes('"code":368')
+        ) {
+          lastLikeApiError = 'Facebook GraphQL 暫時封鎖操作 (sentry_block_data)';
+        }
+      }
+    } catch {
+      // 忽略讀取回應失敗
+    }
+  });
+
+  let totalSessionClicks = 0;
+  let consecutiveBlockedClicks = 0;
+  let rateLimitedAbort = false;
+
   try {
-    for (const targetUrl of urls) {
-      console.log(`\n➡️ [FB] 目前目標: ${targetUrl}`);
+    for (let uIdx = 0; uIdx < urls.length; uIdx++) {
+      if (rateLimitedAbort) break;
+      if (totalSessionClicks >= sessionCap) {
+        console.log(
+          `\n🛡️ [FB] 已達單次執行安全按讚上限 (${totalSessionClicks}/${sessionCap} 讚)，為保護帳號不觸發 Meta 防刷風控，主動結束本次任務。`
+        );
+        break;
+      }
+
+      const targetUrl = urls[uIdx];
+      console.log(`\n➡️ [FB] 目前目標 (${uIdx + 1}/${urls.length}): ${targetUrl}`);
       await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
 
       console.log('⏳ [FB] 正在等待頁面載入內容...');
       await page.waitForTimeout(3000);
 
       // 未登入 / 風控 Checkpoint 偵測：
-      // 1. 若被導向 /checkpoint/、/login/、/recover/，代表觸發 Meta 安全驗證或被強制登出
-      // 2. 若頁面出現 email 登入欄或頂部「登入」按鈕，代表 session 已失效
-      // 必須立即中止，否則繼續連刷後面十幾個粉專會大幅加重帳號風控！
       const currentUrl = page.url();
       const isCheckpoint = /\/(checkpoint|login|recover|two_step_verification)\b/i.test(currentUrl);
       const loginWall = await page.$(
@@ -50,11 +106,15 @@ export async function autoLikeFacebook({ urls, maxScrolls = 10, maxClicks = 30 }
       );
       if (isCheckpoint || loginWall) {
         if (isCheckpoint) {
-          console.error(`🚫 [FB] 偵測到 Meta 安全驗證 (Checkpoint: ${currentUrl})！為保護帳號立即中止 Facebook 任務。`);
+          console.error(
+            `🚫 [FB] 偵測到 Meta 安全驗證 (Checkpoint: ${currentUrl})！為保護帳號立即中止 Facebook 任務。`
+          );
         } else {
           console.error('🚫 [FB] 偵測到登入頁！Facebook session 已失效，中止 Facebook 任務。');
         }
-        console.error('   請在本機重新執行 `pnpm login-social`，再用 `pnpm export-state` 更新 STATE_JSON_B64 Secret。');
+        console.error(
+          '   請在本機重新執行 `pnpm login-social`，再用 `pnpm export-state` 更新 STATE_JSON_B64 Secret。'
+        );
         process.exitCode = 1;
         break;
       }
@@ -65,7 +125,9 @@ export async function autoLikeFacebook({ urls, maxScrolls = 10, maxClicks = 30 }
       let consecutiveZeroLikes = 0;
 
       for (let scroll = 0; scroll < maxScrolls; scroll++) {
-        if (clickCount >= maxClicks) break;
+        if (clickCount >= maxClicks || totalSessionClicks >= sessionCap || rateLimitedAbort) {
+          break;
+        }
 
         console.log(`\n⬇️ [FB] 進行第 ${scroll + 1} 次頁面掃描與捲動...`);
         let likesThisScroll = 0;
@@ -74,7 +136,9 @@ export async function autoLikeFacebook({ urls, maxScrolls = 10, maxClicks = 30 }
         totalLikeButtonsFound += likeButtons.length;
 
         for (const btn of likeButtons) {
-          if (clickCount >= maxClicks) break;
+          if (clickCount >= maxClicks || totalSessionClicks >= sessionCap || rateLimitedAbort) {
+            break;
+          }
 
           try {
             // 標記為已檢查，避免重複處理
@@ -91,15 +155,73 @@ export async function autoLikeFacebook({ urls, maxScrolls = 10, maxClicks = 30 }
             await btn.scrollIntoViewIfNeeded();
             await btn.hover();
             await page.waitForTimeout(jitter(600));
-            await btn.click();
-            clickCount++;
-            likesThisScroll++;
-            console.log(`👍 [FB] 成功點擊第 ${clickCount} 個新貼文的讚`);
 
-            await page.waitForTimeout(humanDelayMs());
+            lastLikeApiError = null;
+            await btn.click();
+
+            // 關鍵驗證：等待 1.8 秒確認按鈕狀態是否已變更為「移除讚 / 收回讚」，且無跳出限制對話框
+            await page.waitForTimeout(1800);
+
+            const verifyResult = await btn.evaluate(el => {
+              const afterLabel = el.getAttribute('aria-label') || '';
+              const dialogs = Array.from(
+                document.querySelectorAll('div[role="dialog"], div[role="alert"]')
+              ).map(d => d.textContent || '');
+              const hasErrorDialog = dialogs.some(t =>
+                /系統暫時封鎖|我們限制了某些活動|請稍後再試|發生錯誤|Temporarily Blocked|We restrict certain activity|Try Again Later/i.test(
+                  t
+                )
+              );
+              return { afterLabel, hasErrorDialog };
+            });
+
+            const isStillUnliked =
+              verifyResult.afterLabel === '讚' ||
+              verifyResult.afterLabel === 'Like' ||
+              verifyResult.afterLabel.includes('表示讚');
+
+            const isLikedConfirmed =
+              !isStillUnliked && !verifyResult.hasErrorDialog && !lastLikeApiError;
+
+            if (isLikedConfirmed) {
+              consecutiveBlockedClicks = 0;
+              clickCount++;
+              totalSessionClicks++;
+              likesThisScroll++;
+              console.log(
+                `👍 [FB] 成功點擊並確認第 ${clickCount} 個新貼文的讚 (本次總累計: ${totalSessionClicks}/${sessionCap})`
+              );
+              await page.waitForTimeout(humanLikePauseMs(totalSessionClicks));
+            } else {
+              consecutiveBlockedClicks++;
+              const reason =
+                lastLikeApiError ||
+                (verifyResult.hasErrorDialog
+                  ? '畫面出現「系統暫時封鎖 / 限制活動」提示'
+                  : `按讚狀態未變更 (${verifyResult.afterLabel})`);
+              console.warn(
+                `⚠️ [FB] 按讚未生效！原因: ${reason} [連續被拒 ${consecutiveBlockedClicks}/2]`
+              );
+
+              if (consecutiveBlockedClicks >= 2) {
+                console.error(
+                  '\n🛑 [FB] 偵測到 Meta 暫時限制 Facebook 按讚功能（按讚被彈回 / Rate Limit）！'
+                );
+                console.error(
+                  '   保護機制已啟動：立即停止點擊（避免繼續點擊延長冷卻時間），請靜置數小時後再執行。'
+                );
+                rateLimitedAbort = true;
+                break;
+              }
+              await page.waitForTimeout(5000);
+            }
           } catch {
             console.log('⚠️ [FB] 處理按鈕時發生錯誤或元素已失效，跳過。');
           }
+        }
+
+        if (clickCount >= maxClicks || totalSessionClicks >= sessionCap || rateLimitedAbort) {
+          break;
         }
 
         if (likesThisScroll === 0) {
@@ -117,13 +239,19 @@ export async function autoLikeFacebook({ urls, maxScrolls = 10, maxClicks = 30 }
         await page.waitForTimeout(jitter(2500));
       }
 
-      console.log(`\n📊 [FB] 總結本次執行:`);
+      console.log(`\n📊 [FB] 總結本次目標執行:`);
       console.log(`   - 累計掃描到的讚物件 (含留言，不重複): ${totalLikeButtonsFound}`);
       console.log(`   - 經過尺寸篩選，符合「尚未按讚的貼文」數量: ${validPostLikeCount}`);
-      console.log(`   - 實際發生新按讚點擊數量: ${clickCount}`);
+      console.log(`   - 實際確認生效的新按讚數量: ${clickCount}`);
 
-      if (clickCount === 0) {
-        console.log(`ℹ️ [FB] 該目標未找到新的按讚按鍵，可能這 ${maxScrolls} 次捲動範圍內的貼文都已經按過或選擇器失效。`);
+      if (clickCount === 0 && !rateLimitedAbort) {
+        console.log(
+          `ℹ️ [FB] 該目標未找到新的按讚按鍵，可能這 ${maxScrolls} 次捲動範圍內的貼文都已經按過或選擇器失效。`
+        );
+      }
+
+      if (!rateLimitedAbort && uIdx < urls.length - 1 && totalSessionClicks < sessionCap) {
+        await page.waitForTimeout(betweenTargetsDelayMs(clickCount));
       }
     }
   } catch (error) {
@@ -134,7 +262,7 @@ export async function autoLikeFacebook({ urls, maxScrolls = 10, maxClicks = 30 }
       await saveStorageState(context);
     }
     await browser.close();
-    console.log('✅ Facebook 任務結束');
+    console.log(`✅ Facebook 任務結束 (本次執行共成功按讚 ${totalSessionClicks} 則)`);
   }
 }
 
