@@ -4,8 +4,7 @@ import {
   saveStorageState,
   parseUrls,
   validatePlatformSessions,
-  humanLikePauseMs,
-  betweenTargetsDelayMs,
+  humanDelayMs,
   jitter,
 } from './utils';
 import 'dotenv/config';
@@ -42,7 +41,7 @@ export async function autoLikeFacebook({
   }
 
   const sessionCap =
-    maxSessionClicks ?? (parseInt(process.env.FB_MAX_LIKES_PER_RUN || '', 10) || 150);
+    maxSessionClicks ?? (parseInt(process.env.FB_MAX_LIKES_PER_RUN || '', 10) || 200);
 
   console.log(
     `🤖 啟動 Facebook 自動按讚，共 ${urls.length} 個目標 (每帳號最多捲動 ${maxScrolls} 次、按 ${maxClicks} 讚；單次執行安全上限 ${sessionCap} 讚)...`
@@ -191,7 +190,7 @@ export async function autoLikeFacebook({
               console.log(
                 `👍 [FB] 成功點擊並確認第 ${clickCount} 個新貼文的讚 (本次總累計: ${totalSessionClicks}/${sessionCap})`
               );
-              await page.waitForTimeout(humanLikePauseMs(totalSessionClicks));
+              await page.waitForTimeout(humanDelayMs());
             } else {
               consecutiveBlockedClicks++;
               const reason =
@@ -248,10 +247,6 @@ export async function autoLikeFacebook({
         console.log(
           `ℹ️ [FB] 該目標未找到新的按讚按鍵，可能這 ${maxScrolls} 次捲動範圍內的貼文都已經按過或選擇器失效。`
         );
-      }
-
-      if (!rateLimitedAbort && uIdx < urls.length - 1 && totalSessionClicks < sessionCap) {
-        await page.waitForTimeout(betweenTargetsDelayMs(clickCount));
       }
     }
   } catch (error) {
