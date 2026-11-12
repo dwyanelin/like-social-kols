@@ -66,8 +66,8 @@ async function main(): Promise<void> {
   await Promise.all([
     (async () => {
       if (canRun('facebook', fbUrls.length + fbNewAddUrls.length > 0)) {
-        if (fbUrls.length > 0) await autoLikeFacebook({ urls: fbUrls, maxScrolls: 8, maxClicks: 15 });
-        if (fbNewAddUrls.length > 0) await autoLikeFacebook({ urls: fbNewAddUrls, maxScrolls: 12, maxClicks: 25 });
+        if (fbUrls.length > 0) await autoLikeFacebook({ urls: fbUrls, maxScrolls: 10, maxClicks: 30 });
+        if (fbNewAddUrls.length > 0) await autoLikeFacebook({ urls: fbNewAddUrls, maxScrolls: 30, maxClicks: 200 });
       }
     })(),
     (async () => {
@@ -85,11 +85,11 @@ async function main(): Promise<void> {
     (async () => {
       if (canRun('instagram', igUrls.length + igNewAddUrls.length > 0)) {
         if (igUrls.length > 0) await autoLikeInstagram({ urls: igUrls, maxScrolls: 5, maxClicks: 10 });
-        if (igNewAddUrls.length > 0) await autoLikeInstagram({ urls: igNewAddUrls, maxScrolls: 10, maxClicks: 20 });
+        if (igNewAddUrls.length > 0) await autoLikeInstagram({ urls: igNewAddUrls, maxScrolls: 30, maxClicks: 100 });
       }
       if (canRun('threads', threadsUrls.length + threadsNewAddUrls.length > 0)) {
         if (threadsUrls.length > 0) await autoLikeThreads({ urls: threadsUrls, maxScrolls: 5, maxClicks: 10 });
-        if (threadsNewAddUrls.length > 0) await autoLikeThreads({ urls: threadsNewAddUrls, maxScrolls: 10, maxClicks: 20 });
+        if (threadsNewAddUrls.length > 0) await autoLikeThreads({ urls: threadsNewAddUrls, maxScrolls: 30, maxClicks: 100 });
       }
     })(),
   ]);

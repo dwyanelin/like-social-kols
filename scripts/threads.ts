@@ -4,8 +4,7 @@ import {
   saveStorageState,
   parseUrls,
   validatePlatformSessions,
-  humanLikePauseMs,
-  betweenTargetsDelayMs,
+  humanDelayMs,
   jitter,
 } from './utils';
 import 'dotenv/config';
@@ -285,7 +284,7 @@ export async function autoLikeThreads({
               console.log(
                 `👍 [Threads] 成功點擊並確認第 ${clickCount} 個新貼文的讚 (本次總累計: ${totalSessionClicks}/${sessionCap})`
               );
-              await page.waitForTimeout(humanLikePauseMs(totalSessionClicks));
+              await page.waitForTimeout(humanDelayMs());
             } else {
               consecutiveBlockedClicks++;
               const reason =
@@ -342,10 +341,6 @@ export async function autoLikeThreads({
         console.log(
           `ℹ️ [Threads] 該目標未找到新的按讚按鍵，可能這 ${maxScrolls} 次捲動範圍內的貼文都已經按過或尚無貼文。`
         );
-      }
-
-      if (!rateLimitedAbort && uIdx < urls.length - 1 && totalSessionClicks < sessionCap) {
-        await page.waitForTimeout(betweenTargetsDelayMs(clickCount));
       }
     }
   } catch (error) {
