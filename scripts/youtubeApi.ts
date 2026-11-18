@@ -51,6 +51,15 @@ function isQuotaExceededError(err: unknown): boolean {
   );
 }
 
+/** 判斷是否為頻道尚無上傳影片導致的 404 playlistNotFound */
+function isPlaylistNotFoundError(err: unknown): boolean {
+  if (err instanceof YouTubeApiError) {
+    return err.status === 404 && err.body.includes('playlistNotFound');
+  }
+  const msg = (err as Error)?.message || '';
+  return msg.includes('404') && msg.includes('playlistNotFound');
+}
+
 export function hasYouTubeApiCredentials(): boolean {
   return !!(
     process.env.YT_OAUTH_CLIENT_ID &&
@@ -213,6 +222,11 @@ export async function autoLikeYouTubeViaApi({
         );
         quotaExhausted = true;
         break;
+      }
+      if (isPlaylistNotFoundError(e)) {
+        checkedChannels++;
+        console.log('ℹ️ [YT-API] 此頻道目前尚無公開上傳影片，跳到下一個目標。');
+        continue;
       }
       console.error(`❌ [YT-API] 處理 ${targetUrl} 時發生錯誤: ${(e as Error).message}`);
       process.exitCode = 1;
