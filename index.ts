@@ -4,7 +4,7 @@ import autoLikeYouTube from './scripts/youtube';
 import { autoLikeYouTubeViaApi, hasYouTubeApiCredentials } from './scripts/youtubeApi';
 import autoLikeInstagram from './scripts/instagram';
 import autoLikeThreads from './scripts/threads';
-import { validatePlatformSessions, parseUrls, type Platform } from './scripts/utils';
+import { validatePlatformSessions, parseUrls, usePersistentProfile, type Platform } from './scripts/utils';
 import { syncYouTubeSecretsToGitHub } from './scripts/syncSecrets';
 
 async function main(): Promise<void> {
@@ -34,8 +34,9 @@ async function main(): Promise<void> {
     threadsUrls.length + threadsNewAddUrls.length > 0 ||
     (ytUrls.length + ytNewAddUrls.length > 0 && !hasYouTubeApiCredentials());
 
-  // 僅在有平台需要瀏覽器 Cookie 時才驗證 state.json；純 YT API 模式不需要 state.json
-  const sessions = needsBrowserSession ? validatePlatformSessions() : null;
+  const persistentMode = usePersistentProfile();
+  // 僅在無本機 .chrome-profile（例如 CI）且需要瀏覽器 Cookie 時才強制驗證 state.json
+  const sessions = needsBrowserSession && !persistentMode ? validatePlatformSessions() : null;
 
   console.log(
     `📋 目標總覽: FB ${fbUrls.length}+${fbNewAddUrls.length} 個 | ` +
@@ -43,12 +44,16 @@ async function main(): Promise<void> {
     `IG ${igUrls.length}+${igNewAddUrls.length} 個 | ` +
     `Threads ${threadsUrls.length}+${threadsNewAddUrls.length} 個`
   );
+  if (needsBrowserSession && persistentMode) {
+    console.log('🧩 本機模式：使用持久化 Chrome Profile (.chrome-profile/)，單視窗依序執行 FB → IG → Threads。');
+  }
 
   // 有設定目標但登入已失效的平台：直接跳過並在最後讓流程以失敗結束，
   // 避免「默默跑完卻一個讚都沒按」
   const skipped: Platform[] = [];
   const canRun = (platform: Platform, hasTargets: boolean): boolean => {
     if (!hasTargets) return false;
+    if (persistentMode) return true;
     if (!sessions || !sessions[platform]) {
       // 若 Threads 尚未有獨立 sessionid 但 Instagram 已登入，允許進入 autoLikeThreads 自動執行 IG 連動登入
       if (platform === 'threads' && sessions?.instagram) {
@@ -61,45 +66,41 @@ async function main(): Promise<void> {
     return true;
   };
 
-  // Facebook 與 YouTube 獨立並行；Instagram 與 Threads 因共用同一組 Meta/IG 帳號後端，
-  // 改為在同一條執行流中依序執行（避免雙視窗同時發送 GraphQL 按讚請求導致頻率翻倍而觸發風控）
-  await Promise.all([
-    (async () => {
-      if (canRun('facebook', fbUrls.length + fbNewAddUrls.length > 0)) {
-        if (fbUrls.length > 0) await autoLikeFacebook({ urls: fbUrls, maxScrolls: 10, maxClicks: 30 });
-        if (fbNewAddUrls.length > 0) await autoLikeFacebook({ urls: fbNewAddUrls, maxScrolls: 30, maxClicks: 200 });
-      }
-    })(),
-    (async () => {
-      if (ytUrls.length + ytNewAddUrls.length === 0) return;
-      // 優先走官方 API（refresh token 不過期、不受前端改版影響）；沒設定憑證才退回瀏覽器模擬
-      if (hasYouTubeApiCredentials()) {
-        console.log('🔑 偵測到 YouTube OAuth 憑證，使用官方 API 模式。');
-        let quotaExhausted = false;
+  // 嚴格單視窗依序執行：Facebook → Instagram → Threads（→ YouTube），
+  // 確保永遠同一時間只開啟 1 個瀏覽器視窗、不共用鎖定衝突，也避免併發請求觸發 Meta 風控。
+  if (canRun('facebook', fbUrls.length + fbNewAddUrls.length > 0)) {
+    if (fbUrls.length > 0) await autoLikeFacebook({ urls: fbUrls, maxScrolls: 10, maxClicks: 30, maxSessionClicks: 120 });
+    if (fbNewAddUrls.length > 0) await autoLikeFacebook({ urls: fbNewAddUrls, maxScrolls: 30, maxClicks: 120, maxSessionClicks: 120 });
+  }
 
-        if (ytUrls.length > 0) {
-          const res = await autoLikeYouTubeViaApi({ urls: ytUrls, maxVideos: 10 });
-          quotaExhausted = res.quotaExhausted;
-        }
-        if (ytNewAddUrls.length > 0 && !quotaExhausted) {
-          await autoLikeYouTubeViaApi({ urls: ytNewAddUrls, maxVideos: 50 });
-        }
-      } else if (canRun('youtube', true)) {
-        if (ytUrls.length > 0) await autoLikeYouTube({ urls: ytUrls, maxVideos: 10 });
-        if (ytNewAddUrls.length > 0) await autoLikeYouTube({ urls: ytNewAddUrls, maxVideos: 50 });
+  if (canRun('instagram', igUrls.length + igNewAddUrls.length > 0)) {
+    if (igUrls.length > 0) await autoLikeInstagram({ urls: igUrls, maxScrolls: 5, maxClicks: 10 });
+    if (igNewAddUrls.length > 0) await autoLikeInstagram({ urls: igNewAddUrls, maxScrolls: 30, maxClicks: 100 });
+  }
+
+  if (canRun('threads', threadsUrls.length + threadsNewAddUrls.length > 0)) {
+    if (threadsUrls.length > 0) await autoLikeThreads({ urls: threadsUrls, maxScrolls: 5, maxClicks: 10 });
+    if (threadsNewAddUrls.length > 0) await autoLikeThreads({ urls: threadsNewAddUrls, maxScrolls: 30, maxClicks: 100 });
+  }
+
+  if (ytUrls.length + ytNewAddUrls.length > 0) {
+    // 優先走官方 API（refresh token 不過期、不受前端改版影響）；沒設定憑證才退回瀏覽器模擬
+    if (hasYouTubeApiCredentials()) {
+      console.log('🔑 偵測到 YouTube OAuth 憑證，使用官方 API 模式。');
+      let quotaExhausted = false;
+
+      if (ytUrls.length > 0) {
+        const res = await autoLikeYouTubeViaApi({ urls: ytUrls, maxVideos: 10 });
+        quotaExhausted = res.quotaExhausted;
       }
-    })(),
-    (async () => {
-      if (canRun('instagram', igUrls.length + igNewAddUrls.length > 0)) {
-        if (igUrls.length > 0) await autoLikeInstagram({ urls: igUrls, maxScrolls: 5, maxClicks: 10 });
-        if (igNewAddUrls.length > 0) await autoLikeInstagram({ urls: igNewAddUrls, maxScrolls: 30, maxClicks: 100 });
+      if (ytNewAddUrls.length > 0 && !quotaExhausted) {
+        await autoLikeYouTubeViaApi({ urls: ytNewAddUrls, maxVideos: 50 });
       }
-      if (canRun('threads', threadsUrls.length + threadsNewAddUrls.length > 0)) {
-        if (threadsUrls.length > 0) await autoLikeThreads({ urls: threadsUrls, maxScrolls: 5, maxClicks: 10 });
-        if (threadsNewAddUrls.length > 0) await autoLikeThreads({ urls: threadsNewAddUrls, maxScrolls: 30, maxClicks: 100 });
-      }
-    })(),
-  ]);
+    } else if (canRun('youtube', true)) {
+      if (ytUrls.length > 0) await autoLikeYouTube({ urls: ytUrls, maxVideos: 10 });
+      if (ytNewAddUrls.length > 0) await autoLikeYouTube({ urls: ytNewAddUrls, maxVideos: 50 });
+    }
+  }
 
   if (skipped.length > 0) {
     console.error(`\n❌ [${new Date().toLocaleString()}] 執行結束，但以下平台因登入失效被跳過: ${skipped.join(', ')}`);

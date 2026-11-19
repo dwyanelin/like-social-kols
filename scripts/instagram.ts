@@ -1,6 +1,5 @@
 import {
-  createBrowser,
-  createContext,
+  createSession,
   saveStorageState,
   parseUrls,
   validatePlatformSessions,
@@ -45,9 +44,8 @@ export async function autoLikeInstagram({
     `🤖 啟動 Instagram 自動按讚，共 ${urls.length} 個目標 (每帳號最多捲動 ${maxScrolls} 次、按 ${effectiveMaxClicks} 讚；單次執行安全上限 ${sessionCap} 讚)...`
   );
 
-  const browser = await createBrowser();
-  const context = await createContext(browser);
-  const page = await context.newPage();
+  const session = await createSession();
+  const { context, page } = session;
 
   // 監聽 Instagram 後端 GraphQL / REST 按讚回應，精準捕捉風控阻擋 (如 xig_media_like: null, code 5004002, feedback_required)
   let lastLikeApiError: string | null = null;
@@ -384,7 +382,7 @@ export async function autoLikeInstagram({
     if (!process.exitCode) {
       await saveStorageState(context);
     }
-    await browser.close();
+    await session.close();
     console.log(`✅ Instagram 任務結束 (本次執行共成功按讚 ${totalSessionClicks} 則)`);
   }
 }

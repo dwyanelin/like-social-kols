@@ -44,18 +44,23 @@ const calendarIntervals = Array.from({ length: 12 }, (_, idx) => {
 }).join('\n');
 
 const stampFile = path.join(logDir, 'last-success-date.txt');
+const lockDir = path.join(logDir, '.launchd.lock');
 const runnerCmd = [
   'TODAY=$(date +%Y-%m-%d)',
   'HOUR=$(date +%H)',
   // 1. 早上 12:00 前絕不執行（防止跨日休眠在早上補跑）
   'if [ "$HOUR" -lt 12 ]; then exit 0; fi',
-  // 2. 今天已經成功執行過就直接跳過（保證一天最多跑一次）
+  // 2. 今天已經連網執行過就直接跳過（保證一天最多跑一次，不因單一平台登出而每整點重跑 IG/Threads）
   `if [ -f "${stampFile}" ] && [ "$(cat "${stampFile}")" = "$TODAY" ]; then exit 0; fi`,
-  // 3. 剛從休眠喚醒時等待 Wi-Fi 連通（每 3 秒檢查一次，最多等 2 分鐘）
+  // 3. 互斥鎖：確保同一時間永遠只會跑一個實例，絕不重疊
+  `if ! mkdir "${lockDir}" 2>/dev/null; then exit 0; fi`,
+  `trap 'rmdir "${lockDir}" 2>/dev/null || true' EXIT`,
+  // 4. 剛從休眠喚醒時等待 Wi-Fi 連通（每 3 秒檢查一次，最多等 2 分鐘）；未連網不寫入今日標記，待稍後喚醒補跑
   'ONLINE=0; for i in {1..40}; do if curl -s --head --request GET https://www.facebook.com --max-time 4 >/dev/null; then ONLINE=1; break; fi; sleep 3; done',
   'if [ "$ONLINE" -ne 1 ]; then exit 1; fi',
-  // 4. 立即執行（無隨機等待），成功後寫入今日完成標記
-  `pnpm start:meta && echo "$TODAY" > "${stampFile}"`,
+  // 5. 確認連網後即刻寫入今日已執行標記，再依序執行 FB → IG → Threads（單一平台異常也不會造成每整點反覆重刷）
+  `echo "$TODAY" > "${stampFile}"`,
+  'pnpm start:meta',
 ].join('; ');
 
 const plistContent = `<?xml version="1.0" encoding="UTF-8"?>

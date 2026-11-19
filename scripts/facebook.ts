@@ -1,6 +1,5 @@
 import {
-  createBrowser,
-  createContext,
+  createSession,
   saveStorageState,
   parseUrls,
   validatePlatformSessions,
@@ -41,15 +40,14 @@ export async function autoLikeFacebook({
   }
 
   const sessionCap =
-    maxSessionClicks ?? (parseInt(process.env.FB_MAX_LIKES_PER_RUN || '', 10) || 200);
+    maxSessionClicks ?? (parseInt(process.env.FB_MAX_LIKES_PER_RUN || '', 10) || 120);
 
   console.log(
     `🤖 啟動 Facebook 自動按讚，共 ${urls.length} 個目標 (每帳號最多捲動 ${maxScrolls} 次、按 ${maxClicks} 讚；單次執行安全上限 ${sessionCap} 讚)...`
   );
 
-  const browser = await createBrowser();
-  const context = await createContext(browser);
-  const page = await context.newPage();
+  const session = await createSession();
+  const { context, page } = session;
 
   // 監聽 Facebook 後端 GraphQL 回應是否包含風控攔截 (sentry_block_data / 1404078 / 368)
   let lastLikeApiError: string | null = null;
@@ -256,7 +254,7 @@ export async function autoLikeFacebook({
     if (!process.exitCode) {
       await saveStorageState(context);
     }
-    await browser.close();
+    await session.close();
     console.log(`✅ Facebook 任務結束 (本次執行共成功按讚 ${totalSessionClicks} 則)`);
   }
 }

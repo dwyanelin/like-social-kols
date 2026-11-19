@@ -1,7 +1,14 @@
-import { chromium, type Browser, type BrowserContext } from 'playwright';
+import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import fs from 'fs';
 
+export const PROFILE_DIR = '.chrome-profile';
+
 export type Platform = 'facebook' | 'youtube' | 'instagram' | 'threads';
+
+/** 本機環境是否可使用持久化 Chrome Profile（不影響日常 Chrome，且保留完整指紋與快取） */
+export function usePersistentProfile(): boolean {
+  return process.env.GITHUB_ACTIONS !== 'true' && fs.existsSync(PROFILE_DIR);
+}
 
 interface Cookie {
   name: string;
@@ -93,6 +100,51 @@ export async function createContext(browser: Browser): Promise<BrowserContext> {
   // 防止 tsx / esbuild 編譯時注入的 __name 在 page.evaluate 瀏覽器環境中拋出 ReferenceError
   await context.addInitScript('window.__name = (fn) => fn;');
   return context;
+}
+
+export interface BrowserSession {
+  context: BrowserContext;
+  page: Page;
+  close: () => Promise<void>;
+}
+
+/**
+ * 建立瀏覽器 Session：
+ * - 本機模式（存在 .chrome-profile）：使用 launchPersistentContext，保留完整快取、IndexedDB 與裝置指紋，
+ *   大幅延長 Meta 登入壽命，且與使用者日常 Chrome 完全隔離互不干擾。
+ * - CI / 無 profile 模式：退回一般 launch + state.json。
+ */
+export async function createSession(): Promise<BrowserSession> {
+  if (usePersistentProfile()) {
+    const channel = process.env.BROWSER_CHANNEL || 'chrome';
+    const context = await chromium.launchPersistentContext(PROFILE_DIR, {
+      headless: process.env.HEADLESS === 'true',
+      channel,
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        '--no-sandbox',
+      ],
+      locale: 'zh-TW',
+      timezoneId: 'Asia/Taipei',
+      viewport: { width: 1280, height: 900 },
+    });
+    await context.addInitScript('window.__name = (fn) => fn;');
+    const page = context.pages()[0] ?? await context.newPage();
+    return {
+      context,
+      page,
+      close: () => context.close(),
+    };
+  }
+
+  const browser = await createBrowser();
+  const context = await createContext(browser);
+  const page = await context.newPage();
+  return {
+    context,
+    page,
+    close: () => browser.close(),
+  };
 }
 
 /**

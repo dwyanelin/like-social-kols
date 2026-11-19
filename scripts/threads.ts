@@ -1,6 +1,5 @@
 import {
-  createBrowser,
-  createContext,
+  createSession,
   saveStorageState,
   parseUrls,
   validatePlatformSessions,
@@ -48,9 +47,8 @@ export async function autoLikeThreads({
     `🤖 啟動 Threads 自動按讚，共 ${urls.length} 個目標 (每帳號最多捲動 ${maxScrolls} 次、按 ${maxClicks} 讚；單次執行安全上限 ${sessionCap} 讚)...`
   );
 
-  const browser = await createBrowser();
-  const context = await createContext(browser);
-  const page = await context.newPage();
+  const session = await createSession();
+  const { context, page } = session;
 
   // 監聽 Threads 後端 GraphQL 按讚回應，捕捉頻率限制或錯誤
   let lastLikeApiError: string | null = null;
@@ -350,7 +348,7 @@ export async function autoLikeThreads({
     if (!process.exitCode) {
       await saveStorageState(context);
     }
-    await browser.close();
+    await session.close();
     console.log(`✅ Threads 任務結束 (本次執行共成功按讚 ${totalSessionClicks} 則)`);
   }
 }
