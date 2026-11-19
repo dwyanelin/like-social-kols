@@ -75,25 +75,14 @@ async function main(): Promise<void> {
       // 優先走官方 API（refresh token 不過期、不受前端改版影響）；沒設定憑證才退回瀏覽器模擬
       if (hasYouTubeApiCredentials()) {
         console.log('🔑 偵測到 YouTube OAuth 憑證，使用官方 API 模式。');
-        const ytSessionCap = parseInt(process.env.YT_MAX_LIKES_PER_RUN || '', 10) || 180;
-        let remainingLikes = ytSessionCap;
         let quotaExhausted = false;
 
         if (ytUrls.length > 0) {
-          const res = await autoLikeYouTubeViaApi({
-            urls: ytUrls,
-            maxVideos: 10,
-            maxSessionLikes: remainingLikes,
-          });
-          remainingLikes = Math.max(0, remainingLikes - res.likedCount);
+          const res = await autoLikeYouTubeViaApi({ urls: ytUrls, maxVideos: 10 });
           quotaExhausted = res.quotaExhausted;
         }
-        if (ytNewAddUrls.length > 0 && !quotaExhausted && remainingLikes > 0) {
-          await autoLikeYouTubeViaApi({
-            urls: ytNewAddUrls,
-            maxVideos: 50,
-            maxSessionLikes: remainingLikes,
-          });
+        if (ytNewAddUrls.length > 0 && !quotaExhausted) {
+          await autoLikeYouTubeViaApi({ urls: ytNewAddUrls, maxVideos: 50 });
         }
       } else if (canRun('youtube', true)) {
         if (ytUrls.length > 0) await autoLikeYouTube({ urls: ytUrls, maxVideos: 10 });

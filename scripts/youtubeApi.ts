@@ -12,8 +12,6 @@ export interface YouTubeApiOptions {
   urls: string[];
   /** 每個頻道最多處理幾支影片 */
   maxVideos?: number;
-  /** 單次執行最大按讚數安全上限（預設 180 讚 = 9,000 點，預留 1,000 點供查詢頻道與按讚狀態） */
-  maxSessionLikes?: number;
 }
 
 export interface YouTubeApiResult {
@@ -110,18 +108,14 @@ function channelParamsFromUrl(targetUrl: string): Record<string, string> | null 
 export async function autoLikeYouTubeViaApi({
   urls,
   maxVideos = 10,
-  maxSessionLikes,
 }: YouTubeApiOptions): Promise<YouTubeApiResult> {
   if (!urls || urls.length === 0) {
     console.log('ℹ️ 沒有 YouTube 目標 URL，跳過。');
     return { likedCount: 0, quotaExhausted: false, estimatedUnitsUsed: 0 };
   }
 
-  const sessionCap =
-    maxSessionLikes ?? (parseInt(process.env.YT_MAX_LIKES_PER_RUN || '', 10) || 180);
-
   console.log(
-    `🤖 啟動 YouTube 自動按讚 (官方 API 模式)，共 ${urls.length} 個目標 (每頻道最多 ${maxVideos} 支影片；單次執行安全上限 ${sessionCap} 讚)...`
+    `🤖 啟動 YouTube 自動按讚 (官方 API 模式)，共 ${urls.length} 個目標 (每頻道最多 ${maxVideos} 支影片，遇 403 配額耗盡將自動優雅熔斷)...`
   );
 
   let token: string;
@@ -185,33 +179,18 @@ export async function autoLikeYouTubeViaApi({
 
       let likeCount = 0;
       for (const videoId of notLiked) {
-        if (totalLikes >= sessionCap) {
-          console.log(
-            `\n🛑 [YT-API] 已達單次執行安全按讚上限 (${totalLikes}/${sessionCap} 讚，預估消耗 ~${estimatedUnitsUsed} 點配額)，觸發優雅熔斷！`
-          );
-          console.log(
-            'ℹ️ [YT-API] 為保留配額緩衝並避免撞擊 10,000 點硬上限，剩餘未按讚影片與頻道將於下次排程自動接續處理。'
-          );
-          quotaExhausted = true;
-          break;
-        }
-
         // videos.rate 每次消耗 50 點
-        estimatedUnitsUsed += 50;
         await apiFetch(token, 'POST', '/videos/rate', { id: videoId, rating: 'like' });
+        estimatedUnitsUsed += 50;
         likeCount++;
         totalLikes++;
         console.log(
-          `🎉 [YT-API] https://youtu.be/${videoId} 按讚成功！(${likeCount}/${notLiked.length}，本次總累計: ${totalLikes}/${sessionCap})`
+          `🎉 [YT-API] https://youtu.be/${videoId} 按讚成功！(${likeCount}/${notLiked.length}，本次總累計: ${totalLikes} 讚)`
         );
         await new Promise(r => setTimeout(r, 300));
       }
 
       console.log(`📊 [YT-API] 目標 [${targetUrl}] 結束，共實際按了 ${likeCount} 個讚`);
-
-      if (quotaExhausted) {
-        break;
-      }
     } catch (e) {
       if (isQuotaExceededError(e)) {
         console.log(
