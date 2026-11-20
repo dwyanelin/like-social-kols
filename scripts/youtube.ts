@@ -1,4 +1,4 @@
-import { createBrowser, createContext, parseUrls, validatePlatformSessions, humanDelayMs } from './utils';
+import { createSession, parseUrls, validatePlatformSessions, humanDelayMs } from './utils';
 import 'dotenv/config';
 
 export interface YouTubeOptions {
@@ -16,9 +16,8 @@ const VIDEO_LINK_SELECTOR = [
   'ytd-grid-video-renderer a[href*="/watch?v="]',
 ].join(', ');
 
-const LIKE_BUTTON_SELECTOR =
-  'ytd-watch-metadata like-button-view-model button[aria-pressed="false"], ' +
-  'ytd-watch-metadata segmented-like-dislike-button-view-model button[aria-pressed="false"]';
+// 嚴格只鎖定 like-button-view-model 內的按讚鈕，絕不匹配 segmented-like-dislike-button-view-model 內的倒讚鈕！
+const LIKE_BUTTON_BASE_SELECTOR = 'ytd-watch-metadata like-button-view-model button';
 
 export async function autoLikeYouTube({ urls, maxVideos = 10 }: YouTubeOptions): Promise<void> {
   if (!urls || urls.length === 0) {
@@ -28,9 +27,8 @@ export async function autoLikeYouTube({ urls, maxVideos = 10 }: YouTubeOptions):
 
   console.log(`🤖 啟動 YouTube 自動按讚，共 ${urls.length} 個目標 (每頻道最多 ${maxVideos} 支影片)...`);
 
-  const browser = await createBrowser();
-  const context = await createContext(browser);
-  const page = await context.newPage();
+  const session = await createSession();
+  const { page } = session;
 
   try {
     for (const targetUrl of urls) {
@@ -96,7 +94,20 @@ export async function autoLikeYouTube({ urls, maxVideos = 10 }: YouTubeOptions):
         await page.goto(new URL(targets[i], 'https://www.youtube.com').href, { waitUntil: 'domcontentloaded' });
         await page.waitForTimeout(3000);
 
-        const likeButton = await page.$(LIKE_BUTTON_SELECTOR);
+        const likeState = await page.evaluate(sel => {
+          const btn = document.querySelector<HTMLButtonElement>(sel);
+          if (!btn) return 'notfound';
+          // 雙重保險：確保絕不是倒讚鈕
+          if (btn.closest('dislike-button-view-model')) return 'notfound';
+          const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+          if (aria.includes('不喜歡') || aria.includes('dislike')) return 'notfound';
+          const pressed = btn.getAttribute('aria-pressed');
+          if (pressed === 'true') return 'liked';
+          if (pressed === 'false') return 'unliked';
+          return 'notfound';
+        }, LIKE_BUTTON_BASE_SELECTOR);
+
+        const likeButton = likeState === 'unliked' ? await page.$(LIKE_BUTTON_BASE_SELECTOR) : null;
 
         if (likeButton) {
           try {
@@ -117,14 +128,16 @@ export async function autoLikeYouTube({ urls, maxVideos = 10 }: YouTubeOptions):
           } catch (e) {
             console.log(`⚠️ [YT] 點擊失敗: ${(e as Error).message}`);
           }
-        } else {
-          console.log(`ℹ️ [YT] 未找到第 ${i + 1} 支影片的按讚按鈕，可能已經按過讚了。`);
+        } else if (likeState === 'liked') {
+          console.log(`ℹ️ [YT] 第 ${i + 1} 支影片已經按過讚了。`);
           notLikedConsecutiveCount++;
 
           if (notLikedConsecutiveCount >= 3) {
             console.log('ℹ️ [YT] 連續 3 支影片皆已按過讚，判斷後面無新片，提早結束此目標...');
             break;
           }
+        } else {
+          console.log(`⚠️ [YT] 未找到第 ${i + 1} 支影片的按讚按鈕，跳過。`);
         }
       }
 
@@ -133,7 +146,7 @@ export async function autoLikeYouTube({ urls, maxVideos = 10 }: YouTubeOptions):
   } catch (error) {
     console.error('❌ YouTube 腳本發生錯誤:', error);
   } finally {
-    await browser.close();
+    await session.close();
     console.log('✅ YouTube 任務結束');
   }
 }
