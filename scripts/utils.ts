@@ -72,6 +72,15 @@ export function validatePlatformSessions(): Record<Platform, boolean> | null {
   return result;
 }
 
+/** 組合 Chrome 啟動參數：僅在 Linux CI/容器環境才加 --no-sandbox，macOS 本機保持完整沙盒且不出現警告列 */
+function getChromeArgs(): string[] {
+  const args = ['--disable-blink-features=AutomationControlled'];
+  if (process.platform === 'linux') {
+    args.push('--no-sandbox');
+  }
+  return args;
+}
+
 /** 建立 Playwright 瀏覽器實例 */
 export async function createBrowser(): Promise<Browser> {
   // 預設走「有頭 + 真 Chrome」：headless 指紋與 Playwright 自帶 Chromium 的 UA
@@ -81,10 +90,7 @@ export async function createBrowser(): Promise<Browser> {
   return chromium.launch({
     headless: process.env.HEADLESS === 'true',
     channel,
-    args: [
-      '--disable-blink-features=AutomationControlled',
-      '--no-sandbox',
-    ],
+    args: getChromeArgs(),
   });
 }
 
@@ -120,10 +126,7 @@ export async function createSession(): Promise<BrowserSession> {
     const context = await chromium.launchPersistentContext(PROFILE_DIR, {
       headless: process.env.HEADLESS === 'true',
       channel,
-      args: [
-        '--disable-blink-features=AutomationControlled',
-        '--no-sandbox',
-      ],
+      args: getChromeArgs(),
       locale: 'zh-TW',
       timezoneId: 'Asia/Taipei',
       viewport: { width: 1280, height: 900 },
