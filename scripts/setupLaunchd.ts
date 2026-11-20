@@ -97,7 +97,7 @@ ${calendarIntervals}
   <string>${path.join(logDir, 'launchd.log')}</string>
 
   <key>StandardErrorPath</key>
-  <string>${path.join(logDir, 'launchd.error.log')}</string>
+  <string>${path.join(logDir, 'launchd.log')}</string>
 </dict>
 </plist>
 `;
