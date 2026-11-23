@@ -91,9 +91,13 @@ YouTube 支援官方 API 按讚（`videos.rate`），**refresh token 不會像 C
 ### 本機執行
 
 ```bash
-pnpm start              # 執行全部目標（四平台並行）
+pnpm start              # 執行全部目標（單視窗依序執行 FB → IG → Threads → YT）
+pnpm start:meta         # 只跑 Meta 三平台（FB → IG → Threads，略過 YouTube；本機 launchd 排程即使用此指令）
+pnpm setup:launchd      # 設定 macOS launchd 每日排程（自動執行 pnpm start:meta）
+pnpm sync-secrets       # 手動將本機 .env 的 YT_TARGET_URLS 同步至 GitHub Secrets
 pnpm like:fb            # 只跑 Facebook
-pnpm like:yt            # 只跑 YouTube
+pnpm like:yt            # 只跑 YouTube（瀏覽器模式）
+pnpm like:yt:api        # 只跑 YouTube（官方 API 模式）
 pnpm like:ig            # 只跑 Instagram
 pnpm like:threads       # 只跑 Threads
 pnpm typecheck          # TypeScript 型別檢查
