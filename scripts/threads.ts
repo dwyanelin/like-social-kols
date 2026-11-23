@@ -31,8 +31,8 @@ const LOGGED_IN_SELECTOR = [
 
 export async function autoLikeThreads({
   urls,
-  maxScrolls = 5,
-  maxClicks = 10,
+  maxScrolls = 30,
+  maxClicks = 150,
   maxSessionClicks,
 }: ThreadsOptions): Promise<void> {
   if (!urls || urls.length === 0) {

@@ -19,7 +19,7 @@ const VIDEO_LINK_SELECTOR = [
 // 嚴格只鎖定 like-button-view-model 內的按讚鈕，絕不匹配 segmented-like-dislike-button-view-model 內的倒讚鈕！
 const LIKE_BUTTON_BASE_SELECTOR = 'ytd-watch-metadata like-button-view-model button';
 
-export async function autoLikeYouTube({ urls, maxVideos = 10 }: YouTubeOptions): Promise<void> {
+export async function autoLikeYouTube({ urls, maxVideos = 100 }: YouTubeOptions): Promise<void> {
   if (!urls || urls.length === 0) {
     console.log('ℹ️ 沒有 YouTube 目標 URL，跳過。');
     return;
@@ -57,10 +57,13 @@ export async function autoLikeYouTube({ urls, maxVideos = 10 }: YouTubeOptions):
         break;
       }
 
-      // 如果需要超過 30 支影片，先捲動頁面載入更多
+      // 如果需要超過 30 支影片，先多次捲動頁面載入更多
       if (maxVideos > 30) {
-        await page.evaluate(() => window.scrollBy(0, 2000));
-        await page.waitForTimeout(1500);
+        const extraScrolls = Math.ceil((maxVideos - 30) / 30);
+        for (let s = 0; s < extraScrolls; s++) {
+          await page.evaluate(() => window.scrollBy(0, 2500));
+          await page.waitForTimeout(1500);
+        }
       }
 
       // 一個影片卡片內會有多個連結（縮圖 + 標題），用 watch id 去重

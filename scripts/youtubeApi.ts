@@ -107,7 +107,7 @@ function channelParamsFromUrl(targetUrl: string): Record<string, string> | null 
 
 export async function autoLikeYouTubeViaApi({
   urls,
-  maxVideos = 10,
+  maxVideos = 100,
 }: YouTubeApiOptions): Promise<YouTubeApiResult> {
   if (!urls || urls.length === 0) {
     console.log('ℹ️ 沒有 YouTube 目標 URL，跳過。');
@@ -152,25 +152,43 @@ export async function autoLikeYouTubeViaApi({
       }
       const uploadsPlaylist: string = channel.contentDetails.relatedPlaylists.uploads;
 
-      // playlistItems.list 消耗 1 點
-      estimatedUnitsUsed += 1;
-      const playlist = await apiFetch(token, 'GET', '/playlistItems', {
-        part: 'contentDetails',
-        playlistId: uploadsPlaylist,
-        maxResults: String(Math.min(maxVideos, 50)),
-      });
-      const videoIds: string[] = (playlist.items || []).map((i: any) => i.contentDetails.videoId).slice(0, maxVideos);
+      // playlistItems.list 每次最多回傳 50 支，超過 50 支時透過 nextPageToken 分頁抓取（每頁消耗 1 點）
+      const videoIds: string[] = [];
+      let pageToken: string | undefined;
+      while (videoIds.length < maxVideos) {
+        const remaining = maxVideos - videoIds.length;
+        const pageParams: Record<string, string> = {
+          part: 'contentDetails',
+          playlistId: uploadsPlaylist,
+          maxResults: String(Math.min(remaining, 50)),
+        };
+        if (pageToken) pageParams.pageToken = pageToken;
+
+        estimatedUnitsUsed += 1;
+        const playlist = await apiFetch(token, 'GET', '/playlistItems', pageParams);
+        const pageIds: string[] = (playlist.items || []).map((i: any) => i.contentDetails.videoId);
+        videoIds.push(...pageIds);
+
+        pageToken = playlist.nextPageToken;
+        if (!pageToken || pageIds.length === 0) break;
+      }
+      const targetVideoIds = videoIds.slice(0, maxVideos);
       checkedChannels++;
-      console.log(`🎥 [YT-API] 頻道「${channel.snippet.title}」最新 ${videoIds.length} 支影片，檢查按讚狀態...`);
+      console.log(`🎥 [YT-API] 頻道「${channel.snippet.title}」最新 ${targetVideoIds.length} 支影片，檢查按讚狀態...`);
 
-      if (videoIds.length === 0) continue;
+      if (targetVideoIds.length === 0) continue;
 
-      // 查詢哪些還沒按過讚 (videos.getRating 消耗 1 點)
-      estimatedUnitsUsed += 1;
-      const ratings = await apiFetch(token, 'GET', '/videos/getRating', { id: videoIds.join(',') });
-      const notLiked: string[] = (ratings.items || [])
-        .filter((r: any) => r.rating !== 'like')
-        .map((r: any) => r.videoId);
+      // 查詢哪些還沒按過讚（videos.getRating 每次上限 50 支 ID，分批查詢、每批消耗 1 點）
+      const notLiked: string[] = [];
+      for (let i = 0; i < targetVideoIds.length; i += 50) {
+        const batch = targetVideoIds.slice(i, i + 50);
+        estimatedUnitsUsed += 1;
+        const ratings = await apiFetch(token, 'GET', '/videos/getRating', { id: batch.join(',') });
+        const batchNotLiked: string[] = (ratings.items || [])
+          .filter((r: any) => r.rating !== 'like')
+          .map((r: any) => r.videoId);
+        notLiked.push(...batchNotLiked);
+      }
 
       if (notLiked.length === 0) {
         console.log('ℹ️ [YT-API] 這些影片全都按過讚了，跳到下一個目標。');

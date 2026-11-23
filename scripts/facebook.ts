@@ -30,8 +30,8 @@ const LIKE_BUTTON_SELECTOR = [
 
 export async function autoLikeFacebook({
   urls,
-  maxScrolls = 8,
-  maxClicks = 15,
+  maxScrolls = 30,
+  maxClicks = 120,
   maxSessionClicks,
 }: FacebookOptions): Promise<void> {
   if (!urls || urls.length === 0) {

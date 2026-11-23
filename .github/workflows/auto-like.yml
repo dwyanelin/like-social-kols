@@ -36,7 +36,6 @@ jobs:
         env:
           SKIP_META: 'true'
           YT_TARGET_URLS: ${{ secrets.YT_TARGET_URLS }}
-          YT_TARGET_URLS_NEW_ADD: ${{ secrets.YT_TARGET_URLS_NEW_ADD }}
           YT_OAUTH_CLIENT_ID: ${{ secrets.YT_OAUTH_CLIENT_ID }}
           YT_OAUTH_CLIENT_SECRET: ${{ secrets.YT_OAUTH_CLIENT_SECRET }}
           YT_OAUTH_REFRESH_TOKEN: ${{ secrets.YT_OAUTH_REFRESH_TOKEN }}

@@ -9,7 +9,7 @@ import path from 'path';
 // 達成「所有平台（FB / IG / Threads / YT）統一只改本機 .env 單一檔案」的管理體驗。
 
 const HASH_FILE = path.resolve(__dirname, '../logs/.yt-secrets.hash');
-const KEYS = ['YT_TARGET_URLS', 'YT_TARGET_URLS_NEW_ADD'] as const;
+const KEYS = ['YT_TARGET_URLS'] as const;
 
 function findGhBin(): string {
   const candidates = [
@@ -47,7 +47,7 @@ export function syncYouTubeSecretsToGitHub(force = false): void {
       if (val) {
         execFileSync(gh, ['secret', 'set', key, '--body', val], { stdio: 'inherit' });
       } else {
-        // 若 .env 中清空（例如 NEW_ADD 處理完畢清空），設為空空白字元覆蓋，避免舊網址殘留
+        // 若 .env 中清空，設為空空白字元覆蓋，避免舊網址殘留
         execFileSync(gh, ['secret', 'set', key, '--body', ' '], { stdio: 'ignore' });
       }
     }
