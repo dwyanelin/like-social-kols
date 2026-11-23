@@ -79,8 +79,8 @@ async function main(): Promise<void> {
   }
 
   if (canRun('threads', threadsUrls.length + threadsNewAddUrls.length > 0)) {
-    if (threadsUrls.length > 0) await autoLikeThreads({ urls: threadsUrls, maxScrolls: 5, maxClicks: 10 });
-    if (threadsNewAddUrls.length > 0) await autoLikeThreads({ urls: threadsNewAddUrls, maxScrolls: 30, maxClicks: 100 });
+    if (threadsUrls.length > 0) await autoLikeThreads({ urls: threadsUrls, maxScrolls: 5, maxClicks: 10, maxSessionClicks: 150 });
+    if (threadsNewAddUrls.length > 0) await autoLikeThreads({ urls: threadsNewAddUrls, maxScrolls: 30, maxClicks: 150, maxSessionClicks: 150 });
   }
 
   if (ytUrls.length + ytNewAddUrls.length > 0) {
