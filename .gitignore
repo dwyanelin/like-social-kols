@@ -5,4 +5,5 @@ node_modules/
 state.json
 state.b64
 logs/
+coverage/
 .DS_Store

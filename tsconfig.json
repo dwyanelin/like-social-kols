@@ -11,5 +11,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["index.ts", "scripts/**/*.ts"]
+  "include": ["index.ts", "scripts/**/*.ts", "tests/**/*.ts", "vitest.config.mts"]
 }
