@@ -3,14 +3,16 @@ import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
 
-// 在 macOS 設定 launchd 定時排程（每天中午 12:00 起，一天最多成功執行一次 Meta 平台：FB / IG / Threads）。
-// 行為保證：
-// 1. 早上 (< 12:00) 喚醒電腦：不會觸發
-// 2. 中午 12:00 電腦醒著：12:00 整準時執行一次（無隨機延遲）
-// 3. 中午已跑過，下午/晚上再喚醒：看到今日已完成紀錄，不會再重複執行
-// 4. 中午休眠沒跑過（或闔蓋 DarkWake 斷網失敗），下午/晚上喚醒電腦：等 Wi-Fi 連通後立即補跑一次
+// 在 macOS 設定極簡版 launchd 排程：
+// - 只要當天連上網路，即自動執行一次 Meta 平台（FB / IG / Threads）
+// - 透過 logs/last-success-date.txt 確保一天最多執行一次
+// - 透過 logs/.launchd.lock 互斥鎖確保同一時間只會跑一個實例
+// - 額外獨立限制：SKIP_DATES 清單內的日期絕對不執行
 
 const LABEL = 'com.dwyanelin.like-social-kols';
+const SKIP_DATES = ['2026-11-25'];
+const CHECK_INTERVAL_SECONDS = 60;
+
 const repoDir = path.resolve(__dirname, '..');
 const logDir = path.join(repoDir, 'logs');
 const launchAgentsDir = path.join(os.homedir(), 'Library', 'LaunchAgents');
@@ -30,35 +32,27 @@ const userPath = [
   '/sbin',
 ].join(':');
 
-// 產生 12:00 ~ 23:00 的日曆觸發點，搭配每日成功鎖定檔 (logs/last-success-date.txt)：
-// - 確保中午 12:00 整準時觸發
-// - 若中午休眠（或發生無網路的闔蓋 DarkWake），下午/晚上任何時刻喚醒都會立即補觸發，且一天最多只成功跑一次
-const calendarIntervals = Array.from({ length: 12 }, (_, idx) => {
-  const hour = 12 + idx;
-  return `    <dict>
-      <key>Hour</key>
-      <integer>${hour}</integer>
-      <key>Minute</key>
-      <integer>0</integer>
-    </dict>`;
-}).join('\n');
-
 const stampFile = path.join(logDir, 'last-success-date.txt');
 const lockDir = path.join(logDir, '.launchd.lock');
+
+// 額外獨立限制：指定日期絕對不執行
+const skipDateCheck =
+  SKIP_DATES.length > 0
+    ? `case "$TODAY" in ${SKIP_DATES.join('|')}) exit 0 ;; esac`
+    : 'true';
+
 const runnerCmd = [
   'TODAY=$(date +%Y-%m-%d)',
-  'HOUR=$(date +%H)',
-  // 1. 早上 12:00 前絕不執行（防止跨日休眠在早上補跑）
-  'if [ "$HOUR" -lt 12 ]; then exit 0; fi',
-  // 2. 今天已經連網執行過就直接跳過（保證一天最多跑一次，不因單一平台登出而每整點重跑 IG/Threads）
+  // 1. 額外獨立限制：指定排除日期絕對不執行
+  skipDateCheck,
+  // 2. 一天最多跑一次：今天已經連網開跑過就直接跳過
   `if [ -f "${stampFile}" ] && [ "$(cat "${stampFile}")" = "$TODAY" ]; then exit 0; fi`,
   // 3. 互斥鎖：確保同一時間永遠只會跑一個實例，絕不重疊
   `if ! mkdir "${lockDir}" 2>/dev/null; then exit 0; fi`,
   `trap 'rmdir "${lockDir}" 2>/dev/null || true' EXIT`,
-  // 4. 剛從休眠喚醒時等待 Wi-Fi 連通（每 3 秒檢查一次，最多等 2 分鐘）；未連網不寫入今日標記，待稍後喚醒補跑
-  'ONLINE=0; for i in {1..40}; do if curl -s --head --request GET https://www.facebook.com --max-time 4 >/dev/null; then ONLINE=1; break; fi; sleep 3; done',
-  'if [ "$ONLINE" -ne 1 ]; then exit 1; fi',
-  // 5. 確認連網後即刻寫入今日已執行標記，再依序執行 FB → IG → Threads（單一平台異常也不會造成每整點反覆重刷）
+  // 4. 確認目前有連上網路；若未連網則不寫入今日標記，待下次檢查（60 秒後）重試
+  'if ! curl -s --head --request GET https://www.facebook.com --max-time 4 >/dev/null; then exit 0; fi',
+  // 5. 連網確認後寫入今日已執行標記，再依序執行 FB → IG → Threads
   `echo "$TODAY" > "${stampFile}"`,
   'pnpm start:meta',
 ].join('; ');
@@ -88,10 +82,11 @@ const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
     <string>${runnerCmd.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</string>
   </array>
 
-  <key>StartCalendarInterval</key>
-  <array>
-${calendarIntervals}
-  </array>
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StartInterval</key>
+  <integer>${CHECK_INTERVAL_SECONDS}</integer>
 
   <key>StandardOutPath</key>
   <string>${path.join(logDir, 'launchd.log')}</string>
@@ -114,7 +109,10 @@ try {
 
 execSync(`launchctl bootstrap gui/${uid} "${plistPath}"`, { stdio: 'inherit' });
 console.log(`🎉 已成功啟用 macOS launchd 排程 (${LABEL})！`);
-console.log('   - 執行時間：每天中午 12:00（無隨機延遲；若中午休眠，下午/晚上喚醒連網後自動補跑，一天最多一次）');
+console.log(`   - 執行規則：只要當天連上網路即執行（每 ${CHECK_INTERVAL_SECONDS} 秒輕量檢查一次，一天最多一次，具互斥鎖）`);
+if (SKIP_DATES.length > 0) {
+  console.log(`   - 排除日期（絕對不執行）：${SKIP_DATES.join(', ')}`);
+}
 console.log('   - 執行範圍：Facebook / Instagram / Threads (pnpm start:meta)');
 console.log(`   - 執行日誌：${path.join(logDir, 'launchd.log')}`);
 console.log(`   - 手動立即測試：launchctl kickstart -k gui/${uid}/${LABEL}`);
