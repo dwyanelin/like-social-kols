@@ -7,7 +7,7 @@ import autoLikeThreads from './scripts/threads';
 import { validatePlatformSessions, parseUrls, usePersistentProfile, type Platform } from './scripts/utils';
 import { syncYouTubeSecretsToGitHub } from './scripts/syncSecrets';
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   console.log(`\n🚀 [${new Date().toLocaleString()}] 開始執行自動按讚...`);
 
   // 本機執行時，若 .env 的 YT_TARGET_URLS 有異動，自動同步至 GitHub Actions Secrets
@@ -94,4 +94,6 @@ async function main(): Promise<void> {
   console.log(`\n✅ [${new Date().toLocaleString()}] 所有按讚任務執行結束！`);
 }
 
-main();
+if (require.main === module) {
+  main();
+}

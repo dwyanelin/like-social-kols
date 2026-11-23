@@ -42,3 +42,9 @@ Rules:
 • I don't just want it to work—I want it to be something I'm proud to show people
 • This is real. Not a mockup. Not a prototype. A working product.
 • Keep me in control and in the loop at all times
+
+Testing & Coverage Policy (Mandatory for Every Session):
+• Whenever adding features, fixing bugs, or refactoring core logic (utilities, API clients, orchestration, config/setup scripts), ALWAYS add or update unit tests under `tests/`.
+• If a new core logic module is introduced, add it to `coverage.include` in `vitest.config.mts` so its coverage is tracked and enforced.
+• For Playwright browser scraper / interactive login scripts (`scripts/facebook.ts`, `scripts/instagram.ts`, `scripts/threads.ts`, `scripts/youtube.ts`, `scripts/login.ts`, `scripts/youtubeAuth.ts`), do NOT write brittle full-browser mocks just to chase 100% line coverage. Instead, extract any non-trivial pure logic (e.g. URL parsing, filtering, state rules) into testable helper functions and unit-test those.
+• Before finishing any development task or opening/merging a PR, ALWAYS run `pnpm test:coverage` and `pnpm typecheck`, and verify all tests and coverage thresholds (Statements/Functions/Lines ≥ 90%, Branches ≥ 85%) pass.

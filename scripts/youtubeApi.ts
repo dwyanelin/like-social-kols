@@ -20,7 +20,7 @@ export interface YouTubeApiResult {
   estimatedUnitsUsed: number;
 }
 
-class YouTubeApiError extends Error {
+export class YouTubeApiError extends Error {
   status: number;
   body: string;
   constructor(method: string, path: string, status: number, body: string) {
@@ -31,7 +31,7 @@ class YouTubeApiError extends Error {
 }
 
 /** 判斷是否為 YouTube Data API 每日配額耗盡 (403 quotaExceeded / dailyLimitExceeded) */
-function isQuotaExceededError(err: unknown): boolean {
+export function isQuotaExceededError(err: unknown): boolean {
   if (err instanceof YouTubeApiError) {
     return (
       err.status === 403 &&
@@ -50,7 +50,7 @@ function isQuotaExceededError(err: unknown): boolean {
 }
 
 /** 判斷是否為頻道尚無上傳影片導致的 404 playlistNotFound */
-function isPlaylistNotFoundError(err: unknown): boolean {
+export function isPlaylistNotFoundError(err: unknown): boolean {
   if (err instanceof YouTubeApiError) {
     return err.status === 404 && err.body.includes('playlistNotFound');
   }
@@ -96,7 +96,7 @@ async function apiFetch(token: string, method: 'GET' | 'POST', path: string, par
 }
 
 /** 從頻道 URL 解析出 channels.list 的查詢參數（支援 @handle 與 /channel/UC... 兩種格式） */
-function channelParamsFromUrl(targetUrl: string): Record<string, string> | null {
+export function channelParamsFromUrl(targetUrl: string): Record<string, string> | null {
   const path = decodeURIComponent(new URL(targetUrl).pathname);
   const handleMatch = path.match(/^\/(@[^/]+)/);
   if (handleMatch) return { forHandle: handleMatch[1] };

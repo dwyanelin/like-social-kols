@@ -17,6 +17,8 @@
     "like:yt:api": "tsx scripts/youtubeApi.ts",
     "like:ig": "tsx scripts/instagram.ts",
     "like:threads": "tsx scripts/threads.ts",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],
@@ -29,7 +31,9 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^5.1.1",
     "tsx": "^4.20.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "vitest": "^5.1.1"
   }
 }
