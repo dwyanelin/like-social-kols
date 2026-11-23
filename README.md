@@ -40,11 +40,10 @@ cp .env.example .env
 
 | 變數 | 說明 |
 |---|---|
-| `FB_TARGET_URLS` | Facebook 目標，每次最多捲動 10 次、按 30 個讚 |
-| `YT_TARGET_URLS` | YouTube 目標，每頻道最多處理 10 支影片 |
-| `IG_TARGET_URLS` | Instagram 目標，每帳號最多處理 10 則貼文 |
-| `THREADS_TARGET_URLS` | Threads 目標，每次最多捲動 10 次、按 30 個讚 |
-| `*_NEW_ADD` | 各平台「新增目標」，會掃更深按更多（補完歷史內容後移回上面） |
+| `FB_TARGET_URLS` | Facebook 目標，每帳號最多捲動 30 次、按 120 個讚（單次安全上限 120 讚） |
+| `YT_TARGET_URLS` | YouTube 目標，每頻道最多處理 100 支影片 |
+| `IG_TARGET_URLS` | Instagram 目標，每帳號最多捲動 30 次、按 100 個讚（單次安全上限 100 讚） |
+| `THREADS_TARGET_URLS` | Threads 目標，每帳號最多捲動 30 次、按 150 個讚（單次安全上限 150 讚） |
 | `HEADLESS` | `true` = 背景執行（看不到瀏覽器），`false` = 可見模式 |
 | `DELAY_MS` | 每次按讚間隔（毫秒），避免被平台封鎖 |
 | `BROWSER_CHANNEL` | 設為 `chrome` 使用系統 Chrome，留空使用 Playwright 內建 Chromium |
@@ -128,7 +127,6 @@ pnpm typecheck          # TypeScript 型別檢查
    | `YT_TARGET_URLS` | YouTube 目標 URL（逗號分隔） |
    | `IG_TARGET_URLS` | Instagram 目標 URL（逗號分隔） |
    | `THREADS_TARGET_URLS` | Threads 目標 URL（逗號分隔） |
-   | `*_TARGET_URLS_NEW_ADD` | （選填）各平台新增目標 |
    | `YT_OAUTH_CLIENT_ID` | （建議）YouTube API 模式的 OAuth client id |
    | `YT_OAUTH_CLIENT_SECRET` | （建議）YouTube API 模式的 OAuth client secret |
    | `YT_OAUTH_REFRESH_TOKEN` | （建議）`pnpm auth:yt` 取得的 refresh token |

@@ -26,8 +26,8 @@ const MAIN_LIKE_MIN_SIZE = 20;
 
 export async function autoLikeInstagram({
   urls,
-  maxScrolls = 5,
-  maxClicks = 10,
+  maxScrolls = 30,
+  maxClicks = 100,
   maxSessionClicks,
   maxPosts,
 }: InstagramOptions): Promise<void> {
