@@ -22,14 +22,21 @@ describe('scripts/setupLaunchd', () => {
   });
 
   describe('buildRunnerCommand', () => {
-    it('includes stamp check, lock dir, network check, and pnpm start:meta', () => {
+    it('includes stamp check, 20h cooldown check, lock dir, network check, and pnpm start:meta', () => {
       const cmd = buildRunnerCommand('/tmp/logs');
       expect(cmd).toContain('TODAY=$(date +%Y-%m-%d)');
+      expect(cmd).toContain('NOW_TS=$(date +%s)');
       expect(cmd).toContain('/tmp/logs/last-success-date.txt');
+      expect(cmd).toContain('/tmp/logs/last-run-ts.txt');
+      expect(cmd).toContain('-lt 72000');
       expect(cmd).toContain('/tmp/logs/.launchd.lock');
       expect(cmd).toContain('https://www.facebook.com');
       expect(cmd).toContain('pnpm start:meta');
-      expect(cmd).not.toContain('case "$TODAY"');
+    });
+
+    it('supports custom minCooldownSeconds', () => {
+      const cmd = buildRunnerCommand('/tmp/logs', 3600);
+      expect(cmd).toContain('-lt 3600');
     });
   });
 

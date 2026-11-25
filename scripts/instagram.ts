@@ -104,21 +104,21 @@ export async function autoLikeInstagram({
       }
       await page.waitForTimeout(2000);
 
-      // 未登入 / 風控 Checkpoint 偵測
+      // 未登入 / 風控 Checkpoint 偵測（未登入的公開 IG 個人頁仍會顯示貼文縮圖且未必出現 username 輸入框，
+      // 因此改以「缺少已登入左側導覽列」作為未登入依據，避免空轉掃描）
       const currentUrl = page.url();
       const isCheckpoint = /\/(challenge|accounts\/login|checkpoint|two_factor)\b/i.test(currentUrl);
-      const loginForm = await page.$('input[name="username"]');
       const loggedInNav = await page.$(
-        'svg[aria-label="首頁"], svg[aria-label="Home"], a[href="/direct/inbox/"]'
+        'svg[aria-label="首頁"], svg[aria-label="Home"], a[href="/direct/inbox/"], svg[aria-label="通知"], svg[aria-label="Notifications"]'
       );
 
-      if (isCheckpoint || (loginForm && !loggedInNav)) {
+      if (isCheckpoint || !loggedInNav) {
         if (isCheckpoint) {
           console.error(
             `🚫 [IG] 偵測到安全驗證或登入轉址 (${currentUrl})！為保護帳號立即中止 Instagram 任務。`
           );
         } else {
-          console.error('🚫 [IG] 偵測到登入頁！Instagram session 已失效，中止 Instagram 任務。');
+          console.error('🚫 [IG] 偵測到未登入狀態（找不到已登入導覽列）！Instagram session 已失效，中止 Instagram 任務。');
         }
         console.error(
           '   請在本機重新執行 `pnpm login-social`，再用 `pnpm export-state` 更新 STATE_JSON_B64 Secret。'
