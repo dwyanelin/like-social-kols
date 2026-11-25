@@ -48,6 +48,7 @@ async function isActuallyLoggedIn(page: Page, context: BrowserContext, step: Log
   const context = await chromium.launchPersistentContext(PROFILE_DIR, {
     headless: false,
     channel: 'chrome', // 使用系統 Chrome 並隱藏自動化標記，繞過安全檢查
+    chromiumSandbox: process.platform !== 'linux',
     args: ['--disable-blink-features=AutomationControlled'],
     locale: 'zh-TW',
     timezoneId: 'Asia/Taipei',

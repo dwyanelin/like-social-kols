@@ -90,6 +90,7 @@ export async function createBrowser(): Promise<Browser> {
   return chromium.launch({
     headless: process.env.HEADLESS === 'true',
     channel,
+    chromiumSandbox: process.platform !== 'linux',
     args: getChromeArgs(),
   });
 }
@@ -126,6 +127,7 @@ export async function createSession(): Promise<BrowserSession> {
     const context = await chromium.launchPersistentContext(PROFILE_DIR, {
       headless: process.env.HEADLESS === 'true',
       channel,
+      chromiumSandbox: process.platform !== 'linux',
       args: getChromeArgs(),
       locale: 'zh-TW',
       timezoneId: 'Asia/Taipei',

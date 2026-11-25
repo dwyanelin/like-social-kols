@@ -141,6 +141,7 @@ describe('scripts/utils', () => {
       expect(launchMock).toHaveBeenCalledWith({
         headless: true,
         channel: 'chromium',
+        chromiumSandbox: false,
         args: ['--disable-blink-features=AutomationControlled', '--no-sandbox'],
       });
     });
@@ -156,6 +157,7 @@ describe('scripts/utils', () => {
       expect(launchMock).toHaveBeenCalledWith({
         headless: false,
         channel: 'chrome',
+        chromiumSandbox: true,
         args: ['--disable-blink-features=AutomationControlled'],
       });
     });
@@ -178,6 +180,7 @@ describe('scripts/utils', () => {
 
   describe('createSession', () => {
     it('uses launchPersistentContext when persistent profile is available', async () => {
+      Object.defineProperty(process, 'platform', { value: 'darwin' });
       delete process.env.GITHUB_ACTIONS;
       vi.spyOn(fs, 'existsSync').mockImplementation((p) => p === PROFILE_DIR);
       const fakePage = { id: 'existing-page' };
@@ -190,6 +193,10 @@ describe('scripts/utils', () => {
       launchPersistentContextMock.mockResolvedValue(fakeContext);
 
       const session = await createSession();
+      expect(launchPersistentContextMock).toHaveBeenCalledWith(
+        PROFILE_DIR,
+        expect.objectContaining({ chromiumSandbox: true }),
+      );
       expect(session.context).toBe(fakeContext);
       expect(session.page).toBe(fakePage);
       await session.close();
