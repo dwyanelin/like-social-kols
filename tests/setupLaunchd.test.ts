@@ -22,18 +22,13 @@ describe('scripts/setupLaunchd', () => {
   });
 
   describe('buildRunnerCommand', () => {
-    it('includes skip dates case guard, stamp check, lock dir, network check, and pnpm start:meta', () => {
-      const cmd = buildRunnerCommand('/tmp/logs', ['2026-11-25', '2026-12-01']);
-      expect(cmd).toContain('case "$TODAY" in 2026-11-25|2026-12-01) exit 0 ;; esac');
+    it('includes stamp check, lock dir, network check, and pnpm start:meta', () => {
+      const cmd = buildRunnerCommand('/tmp/logs');
+      expect(cmd).toContain('TODAY=$(date +%Y-%m-%d)');
       expect(cmd).toContain('/tmp/logs/last-success-date.txt');
       expect(cmd).toContain('/tmp/logs/.launchd.lock');
       expect(cmd).toContain('https://www.facebook.com');
       expect(cmd).toContain('pnpm start:meta');
-    });
-
-    it('uses no-op true guard when skipDates is empty', () => {
-      const cmd = buildRunnerCommand('/tmp/logs', []);
-      expect(cmd).toContain('TODAY=$(date +%Y-%m-%d); true;');
       expect(cmd).not.toContain('case "$TODAY"');
     });
   });
