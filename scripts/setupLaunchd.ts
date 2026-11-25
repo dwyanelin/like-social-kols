@@ -6,26 +6,36 @@ import { execSync } from 'child_process';
 // 在 macOS 設定極簡版 launchd 排程：
 // - 只要當天連上網路，即自動執行一次 Meta 平台（FB / IG / Threads）
 // - 透過 logs/last-success-date.txt 確保一天最多執行一次
+// - 透過 logs/last-run-ts.txt 確保距上次執行至少間隔 20 小時（避免跨午夜短時間連跑兩輪觸發 Meta 風控）
 // - 透過 logs/.launchd.lock 互斥鎖確保同一時間只會跑一個實例
 
 export const LABEL = 'com.dwyanelin.like-social-kols';
 export const CHECK_INTERVAL_SECONDS = 60;
+export const MIN_COOLDOWN_SECONDS = 20 * 60 * 60;
 
-export function buildRunnerCommand(logDir: string): string {
+export function buildRunnerCommand(
+  logDir: string,
+  minCooldownSeconds: number = MIN_COOLDOWN_SECONDS
+): string {
   const stampFile = path.join(logDir, 'last-success-date.txt');
+  const lastRunTsFile = path.join(logDir, 'last-run-ts.txt');
   const lockDir = path.join(logDir, '.launchd.lock');
 
   return [
     'TODAY=$(date +%Y-%m-%d)',
+    'NOW_TS=$(date +%s)',
     // 1. 一天最多跑一次：今天已經連網開跑過就直接跳過
     `if [ -f "${stampFile}" ] && [ "$(cat "${stampFile}")" = "$TODAY" ]; then exit 0; fi`,
-    // 2. 互斥鎖：確保同一時間永遠只會跑一個實例，絕不重疊
+    // 2. 最少間隔 20 小時：避免下午跑完、跨午夜 00:00 又立刻開跑，導致 24 小時內翻倍按讚觸發 Meta 風控
+    `if [ -s "${lastRunTsFile}" ] && [ $((NOW_TS - $(cat "${lastRunTsFile}"))) -lt ${minCooldownSeconds} ]; then exit 0; fi`,
+    // 3. 互斥鎖：確保同一時間永遠只會跑一個實例，絕不重疊
     `if ! mkdir "${lockDir}" 2>/dev/null; then exit 0; fi`,
     `trap 'rmdir "${lockDir}" 2>/dev/null || true' EXIT`,
-    // 3. 確認目前有連上網路；若未連網則不寫入今日標記，待下次檢查（60 秒後）重試
+    // 4. 確認目前有連上網路；若未連網則不寫入今日標記，待下次檢查（60 秒後）重試
     'if ! curl -s --head --request GET https://www.facebook.com --max-time 4 >/dev/null; then exit 0; fi',
-    // 4. 連網確認後寫入今日已執行標記，再依序執行 FB → IG → Threads
+    // 5. 連網確認後寫入今日日期與執行時間戳，再依序執行 FB → IG → Threads
     `echo "$TODAY" > "${stampFile}"`,
+    `echo "$NOW_TS" > "${lastRunTsFile}"`,
     'pnpm start:meta',
   ].join('; ');
 }
@@ -124,7 +134,9 @@ export function setupLaunchd(): string {
 
   execSync(`launchctl bootstrap gui/${uid} "${plistPath}"`, { stdio: 'inherit' });
   console.log(`🎉 已成功啟用 macOS launchd 排程 (${LABEL})！`);
-  console.log(`   - 執行規則：只要當天連上網路即執行（每 ${CHECK_INTERVAL_SECONDS} 秒輕量檢查一次，一天最多一次，具互斥鎖）`);
+  console.log(
+    `   - 執行規則：只要當天連上網路即執行（每 ${CHECK_INTERVAL_SECONDS} 秒輕量檢查一次，一天最多一次且距上次至少間隔 ${Math.round(MIN_COOLDOWN_SECONDS / 3600)} 小時，具互斥鎖）`
+  );
   console.log('   - 執行範圍：Facebook / Instagram / Threads (pnpm start:meta)');
   console.log(`   - 執行日誌：${path.join(logDir, 'launchd.log')}`);
   console.log(`   - 手動立即測試：launchctl kickstart -k gui/${uid}/${LABEL}`);
