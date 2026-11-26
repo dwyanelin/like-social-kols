@@ -15,6 +15,7 @@ vi.mock('playwright', () => ({
 
 import {
   PROFILE_DIR,
+  PAGE_INIT_SCRIPT,
   usePersistentProfile,
   validatePlatformSessions,
   createBrowser,
@@ -142,11 +143,11 @@ describe('scripts/utils', () => {
         headless: true,
         channel: 'chromium',
         chromiumSandbox: false,
-        args: ['--disable-blink-features=AutomationControlled', '--no-sandbox'],
+        args: ['--no-sandbox'],
       });
     });
 
-    it('launches headed chrome without --no-sandbox on macOS by default', async () => {
+    it('launches headed chrome without warning-bar flags on macOS by default', async () => {
       Object.defineProperty(process, 'platform', { value: 'darwin' });
       delete process.env.HEADLESS;
       delete process.env.BROWSER_CHANNEL;
@@ -158,11 +159,11 @@ describe('scripts/utils', () => {
         headless: false,
         channel: 'chrome',
         chromiumSandbox: true,
-        args: ['--disable-blink-features=AutomationControlled'],
+        args: [],
       });
     });
 
-    it('creates context with zh-TW locale and __name init script', async () => {
+    it('creates context with zh-TW locale and PAGE_INIT_SCRIPT (hiding webdriver and __name)', async () => {
       const fakeContext = { addInitScript: vi.fn().mockResolvedValue(undefined) };
       const fakeBrowser = { newContext: vi.fn().mockResolvedValue(fakeContext) } as any;
 
@@ -174,7 +175,9 @@ describe('scripts/utils', () => {
         timezoneId: 'Asia/Taipei',
         viewport: { width: 1280, height: 900 },
       });
-      expect(fakeContext.addInitScript).toHaveBeenCalledWith('window.__name = (fn) => fn;');
+      expect(fakeContext.addInitScript).toHaveBeenCalledWith(PAGE_INIT_SCRIPT);
+      expect(PAGE_INIT_SCRIPT).toContain('window.__name');
+      expect(PAGE_INIT_SCRIPT).toContain('webdriver');
     });
   });
 
