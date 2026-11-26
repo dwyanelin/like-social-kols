@@ -71,7 +71,7 @@ export async function main(): Promise<void> {
   }
 
   if (canRun('threads', threadsUrls.length > 0)) {
-    await autoLikeThreads({ urls: threadsUrls, maxScrolls: 30, maxClicks: 150, maxSessionClicks: 150 });
+    await autoLikeThreads({ urls: threadsUrls, maxScrolls: 30, maxClicks: 200, maxSessionClicks: 200 });
   }
 
   if (ytUrls.length > 0) {

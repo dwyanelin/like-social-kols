@@ -32,7 +32,7 @@ const LOGGED_IN_SELECTOR = [
 export async function autoLikeThreads({
   urls,
   maxScrolls = 30,
-  maxClicks = 150,
+  maxClicks = 200,
   maxSessionClicks,
 }: ThreadsOptions): Promise<void> {
   if (!urls || urls.length === 0) {
@@ -41,7 +41,7 @@ export async function autoLikeThreads({
   }
 
   const sessionCap =
-    maxSessionClicks ?? (parseInt(process.env.THREADS_MAX_LIKES_PER_RUN || '', 10) || 150);
+    maxSessionClicks ?? (parseInt(process.env.THREADS_MAX_LIKES_PER_RUN || '', 10) || 200);
 
   console.log(
     `🤖 啟動 Threads 自動按讚，共 ${urls.length} 個目標 (每帳號最多捲動 ${maxScrolls} 次、按 ${maxClicks} 讚；單次執行安全上限 ${sessionCap} 讚)...`
