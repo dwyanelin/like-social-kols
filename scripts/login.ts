@@ -1,4 +1,5 @@
 import { chromium, type BrowserContext, type Page } from 'playwright';
+import { PAGE_INIT_SCRIPT } from './utils';
 
 // 使用專用的常駐 Chrome profile（.chrome-profile/，已被 .gitignore 排除）：
 // 第一次需要手動登入各平台，之後 session 會一直活在 profile 裡，
@@ -47,13 +48,14 @@ async function isActuallyLoggedIn(page: Page, context: BrowserContext, step: Log
   console.log(`正在啟動瀏覽器（使用專屬常駐 profile: ${PROFILE_DIR}/，完全不影響日常 Chrome）...`);
   const context = await chromium.launchPersistentContext(PROFILE_DIR, {
     headless: false,
-    channel: 'chrome', // 使用系統 Chrome 並隱藏自動化標記，繞過安全檢查
+    channel: 'chrome', // 使用系統 Chrome，避免自動化指紋與警告列
     chromiumSandbox: process.platform !== 'linux',
-    args: ['--disable-blink-features=AutomationControlled'],
+    args: process.platform === 'linux' ? ['--no-sandbox'] : [],
     locale: 'zh-TW',
     timezoneId: 'Asia/Taipei',
     viewport: { width: 1280, height: 900 },
   });
+  await context.addInitScript(PAGE_INIT_SCRIPT);
   const page = context.pages()[0] ?? await context.newPage();
 
   for (const step of LOGIN_STEPS) {

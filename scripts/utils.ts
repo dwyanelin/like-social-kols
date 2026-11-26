@@ -72,13 +72,19 @@ export function validatePlatformSessions(): Record<Platform, boolean> | null {
   return result;
 }
 
-/** 組合 Chrome 啟動參數：僅在 Linux CI/容器環境才加 --no-sandbox，macOS 本機保持完整沙盒且不出現警告列 */
+/**
+ * 注入至每個頁面的初始化腳本：
+ * 1. 防止 tsx / esbuild 編譯時注入的 __name 在 page.evaluate 瀏覽器環境中拋出 ReferenceError
+ * 2. 改由 JS 隱藏 navigator.webdriver，取代會觸發 Chrome 警告列的 --disable-blink-features=AutomationControlled
+ */
+export const PAGE_INIT_SCRIPT = [
+  'window.__name = (fn) => fn;',
+  "Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => undefined, configurable: true });",
+].join('\n');
+
+/** 組合 Chrome 啟動參數：僅在 Linux CI/容器環境才加 --no-sandbox，macOS 本機保持完整沙盒且不傳入會觸發 Chrome 警告列的旗標 */
 function getChromeArgs(): string[] {
-  const args = ['--disable-blink-features=AutomationControlled'];
-  if (process.platform === 'linux') {
-    args.push('--no-sandbox');
-  }
-  return args;
+  return process.platform === 'linux' ? ['--no-sandbox'] : [];
 }
 
 /** 建立 Playwright 瀏覽器實例 */
@@ -104,8 +110,7 @@ export async function createContext(browser: Browser): Promise<BrowserContext> {
     timezoneId: 'Asia/Taipei',
     viewport: { width: 1280, height: 900 },
   });
-  // 防止 tsx / esbuild 編譯時注入的 __name 在 page.evaluate 瀏覽器環境中拋出 ReferenceError
-  await context.addInitScript('window.__name = (fn) => fn;');
+  await context.addInitScript(PAGE_INIT_SCRIPT);
   return context;
 }
 
@@ -133,7 +138,7 @@ export async function createSession(): Promise<BrowserSession> {
       timezoneId: 'Asia/Taipei',
       viewport: { width: 1280, height: 900 },
     });
-    await context.addInitScript('window.__name = (fn) => fn;');
+    await context.addInitScript(PAGE_INIT_SCRIPT);
     const page = context.pages()[0] ?? await context.newPage();
     return {
       context,
