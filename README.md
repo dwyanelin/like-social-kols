@@ -43,7 +43,7 @@ cp .env.example .env
 | `FB_TARGET_URLS` | Facebook 目標，每帳號最多捲動 30 次、按 120 個讚（單次安全上限 120 讚） |
 | `YT_TARGET_URLS` | YouTube 目標，每頻道最多處理 100 支影片 |
 | `IG_TARGET_URLS` | Instagram 目標，每帳號最多捲動 30 次、按 100 個讚（單次安全上限 100 讚） |
-| `THREADS_TARGET_URLS` | Threads 目標，每帳號最多捲動 30 次、按 150 個讚（單次安全上限 150 讚） |
+| `THREADS_TARGET_URLS` | Threads 目標，每帳號最多捲動 30 次、按 200 個讚（單次安全上限 200 讚） |
 | `HEADLESS` | `true` = 背景執行（看不到瀏覽器），`false` = 可見模式 |
 | `DELAY_MS` | 每次按讚間隔（毫秒），避免被平台封鎖 |
 | `BROWSER_CHANNEL` | 設為 `chrome` 使用系統 Chrome，留空使用 Playwright 內建 Chromium |

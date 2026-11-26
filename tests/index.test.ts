@@ -136,7 +136,12 @@ describe('index.ts main orchestration', () => {
 
     await main();
 
-    expect(autoLikeThreadsMock).toHaveBeenCalledOnce();
+    expect(autoLikeThreadsMock).toHaveBeenCalledWith({
+      urls: ['https://threads.com/@kol3'],
+      maxScrolls: 30,
+      maxClicks: 200,
+      maxSessionClicks: 200,
+    });
     expect(process.exitCode).toBeUndefined();
   });
 
