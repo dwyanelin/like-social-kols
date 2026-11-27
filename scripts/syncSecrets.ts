@@ -8,6 +8,7 @@ import path from 'path';
 // 將本機 .env 的 YouTube 目標網址自動同步至 GitHub Actions Secrets，
 // 達成「所有平台（FB / IG / Threads / YT）統一只改本機 .env 單一檔案」的管理體驗。
 
+const ENV_FILE = path.resolve(__dirname, '../.env');
 const HASH_FILE = path.resolve(__dirname, '../logs/.yt-secrets.hash');
 const KEYS = ['YT_TARGET_URLS'] as const;
 
@@ -27,6 +28,10 @@ function findGhBin(): string {
 export function syncYouTubeSecretsToGitHub(force = false): void {
   // 在 GitHub Actions runner 內執行時不需逆向同步
   if (process.env.GITHUB_ACTIONS === 'true') return;
+
+  // 若專案根目錄沒有 .env（例如剛 clone 的新環境或雲端環境），直接跳過同步，
+  // 避免以空的 YT_TARGET_URLS 誤覆蓋 GitHub Actions 既有的 Secret
+  if (!fs.existsSync(ENV_FILE)) return;
 
   const payload = JSON.stringify(
     Object.fromEntries(KEYS.map(k => [k, (process.env[k] || '').trim()]))
