@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import crypto from 'crypto';
 import fs from 'fs';
+import path from 'path';
+
+const ENV_FILE = path.resolve(__dirname, '../.env');
 
 const { execFileSyncMock } = vi.hoisted(() => ({
   execFileSyncMock: vi.fn(),
@@ -34,6 +37,16 @@ describe('scripts/syncSecrets', () => {
     expect(execFileSyncMock).not.toHaveBeenCalled();
   });
 
+  it('skips syncing when project root .env does not exist', () => {
+    delete process.env.YT_TARGET_URLS;
+    const existsSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+
+    syncYouTubeSecretsToGitHub(false);
+    syncYouTubeSecretsToGitHub(true);
+    expect(existsSpy).toHaveBeenCalledWith(ENV_FILE);
+    expect(execFileSyncMock).not.toHaveBeenCalled();
+  });
+
   it('skips syncing when hash matches and force is false', () => {
     process.env.YT_TARGET_URLS = 'https://youtube.com/@a';
     const expectedHash = crypto
@@ -50,7 +63,9 @@ describe('scripts/syncSecrets', () => {
 
   it('syncs secret and updates hash file when value changed', () => {
     process.env.YT_TARGET_URLS = ' https://youtube.com/@new ';
-    vi.spyOn(fs, 'existsSync').mockImplementation((p) => String(p) === '/opt/homebrew/bin/gh');
+    vi.spyOn(fs, 'existsSync').mockImplementation(
+      (p) => String(p) === ENV_FILE || String(p) === '/opt/homebrew/bin/gh',
+    );
     const mkdirSpy = vi.spyOn(fs, 'mkdirSync').mockImplementation(() => undefined);
     const writeSpy = vi.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
 
@@ -67,7 +82,7 @@ describe('scripts/syncSecrets', () => {
 
   it('writes single space when YT_TARGET_URLS is empty and falls back to gh in PATH', () => {
     process.env.YT_TARGET_URLS = '   ';
-    vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+    vi.spyOn(fs, 'existsSync').mockImplementation((p) => String(p) === ENV_FILE);
     vi.spyOn(fs, 'mkdirSync').mockImplementation(() => undefined);
     vi.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
 
@@ -82,7 +97,7 @@ describe('scripts/syncSecrets', () => {
 
   it('warns without throwing when gh CLI fails', () => {
     process.env.YT_TARGET_URLS = 'https://youtube.com/@fail';
-    vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+    vi.spyOn(fs, 'existsSync').mockImplementation((p) => String(p) === ENV_FILE);
     execFileSyncMock.mockImplementation(() => {
       throw new Error('gh not logged in');
     });
