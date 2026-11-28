@@ -5,6 +5,7 @@ import {
   validatePlatformSessions,
   humanDelayMs,
   jitter,
+  formatLogTimestamp,
 } from './utils';
 import 'dotenv/config';
 
@@ -280,7 +281,7 @@ export async function autoLikeThreads({
               totalSessionClicks++;
               likesThisScroll++;
               console.log(
-                `👍 [Threads] 成功點擊並確認第 ${clickCount} 個新貼文的讚 (本次總累計: ${totalSessionClicks}/${sessionCap})`
+                `[${formatLogTimestamp()}] 👍 [Threads] 成功點擊並確認第 ${clickCount} 個新貼文的讚 (本次總累計: ${totalSessionClicks}/${sessionCap})`
               );
               await page.waitForTimeout(humanDelayMs());
             } else {
@@ -291,7 +292,7 @@ export async function autoLikeThreads({
                   ? '畫面出現「發生錯誤 / 限制活動」提示'
                   : `愛心狀態被彈回 (${verifyResult.afterLabel})`);
               console.warn(
-                `⚠️ [Threads] 按讚未生效！原因: ${reason} [連續被拒 ${consecutiveBlockedClicks}/2]`
+                `[${formatLogTimestamp()}] ⚠️ [Threads] 按讚未生效！原因: ${reason} [連續被拒 ${consecutiveBlockedClicks}/2]`
               );
 
               if (consecutiveBlockedClicks >= 2) {

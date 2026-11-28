@@ -5,6 +5,7 @@ import {
   validatePlatformSessions,
   humanDelayMs,
   jitter,
+  formatLogTimestamp,
 } from './utils';
 import 'dotenv/config';
 
@@ -277,7 +278,7 @@ export async function autoLikeInstagram({
                 likesThisScroll++;
                 alreadyLikedUnpinnedInScroll = 0;
                 console.log(
-                  `👍 [IG] 成功點擊並確認第 ${clickCount} 個新貼文的讚 (本次總累計: ${totalSessionClicks}/${sessionCap})`
+                  `[${formatLogTimestamp()}] 👍 [IG] 成功點擊並確認第 ${clickCount} 個新貼文的讚 (本次總累計: ${totalSessionClicks}/${sessionCap})`
                 );
                 await page.waitForTimeout(humanDelayMs());
               } else {
@@ -288,7 +289,7 @@ export async function autoLikeInstagram({
                     ? '畫面出現「發生錯誤，請再試一次 / 限制活動」提示'
                     : `愛心狀態被彈回 (${verifyResult.afterLabel})`);
                 console.warn(
-                  `⚠️ [IG] 按讚未生效！原因: ${reason} [連續被拒 ${consecutiveBlockedClicks}/2]`
+                  `[${formatLogTimestamp()}] ⚠️ [IG] 按讚未生效！原因: ${reason} [連續被拒 ${consecutiveBlockedClicks}/2]`
                 );
 
                 if (consecutiveBlockedClicks >= 2) {
