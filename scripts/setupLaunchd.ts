@@ -8,18 +8,23 @@ import { execSync } from 'child_process';
 // - 透過 logs/last-success-date.txt 確保一天最多執行一次
 // - 透過 logs/last-run-ts.txt 確保距上次執行至少間隔 20 小時（避免跨午夜短時間連跑兩輪觸發 Meta 風控）
 // - 透過 logs/.launchd.lock 互斥鎖確保同一時間只會跑一個實例
+// - 每日輸出獨立寫入 logs/launchd-YYYY-MM-DD.log（搭配 launchd-latest.log 軟連結），並自動刪除超過 14 天的舊日誌
 
 export const LABEL = 'com.dwyanelin.like-social-kols';
 export const CHECK_INTERVAL_SECONDS = 60;
 export const MIN_COOLDOWN_SECONDS = 20 * 60 * 60;
+export const LOG_RETENTION_DAYS = 14;
 
 export function buildRunnerCommand(
   logDir: string,
-  minCooldownSeconds: number = MIN_COOLDOWN_SECONDS
+  minCooldownSeconds: number = MIN_COOLDOWN_SECONDS,
+  logRetentionDays: number = LOG_RETENTION_DAYS
 ): string {
   const stampFile = path.join(logDir, 'last-success-date.txt');
   const lastRunTsFile = path.join(logDir, 'last-run-ts.txt');
   const lockDir = path.join(logDir, '.launchd.lock');
+  const dailyLogFile = path.join(logDir, 'launchd-$TODAY.log');
+  const latestLogLink = path.join(logDir, 'launchd-latest.log');
 
   return [
     'TODAY=$(date +%Y-%m-%d)',
@@ -33,10 +38,13 @@ export function buildRunnerCommand(
     `trap 'rmdir "${lockDir}" 2>/dev/null || true' EXIT`,
     // 4. 確認目前有連上網路；若未連網則不寫入今日標記，待下次檢查（60 秒後）重試
     'if ! curl -s --head --request GET https://www.facebook.com --max-time 4 >/dev/null; then exit 0; fi',
-    // 5. 連網確認後寫入今日日期與執行時間戳，再依序執行 FB → IG → Threads
+    // 5. 自動清理超過保留天數的舊每日日誌（預設保留 14 天）
+    `find "${logDir}" -maxdepth 1 -type f -name 'launchd-????-??-??.log' -mtime +${logRetentionDays} -delete`,
+    // 6. 連網確認後寫入今日日期與執行時間戳、更新最新日誌捷徑，再依序執行 FB → IG → Threads
     `echo "$TODAY" > "${stampFile}"`,
     `echo "$NOW_TS" > "${lastRunTsFile}"`,
-    'pnpm start:meta',
+    `ln -sf "launchd-$TODAY.log" "${latestLogLink}"`,
+    `pnpm start:meta >> "${dailyLogFile}" 2>&1`,
   ].join('; ');
 }
 
@@ -138,7 +146,9 @@ export function setupLaunchd(): string {
     `   - 執行規則：只要當天連上網路即執行（每 ${CHECK_INTERVAL_SECONDS} 秒輕量檢查一次，一天最多一次且距上次至少間隔 ${Math.round(MIN_COOLDOWN_SECONDS / 3600)} 小時，具互斥鎖）`
   );
   console.log('   - 執行範圍：Facebook / Instagram / Threads (pnpm start:meta)');
-  console.log(`   - 執行日誌：${path.join(logDir, 'launchd.log')}`);
+  console.log(
+    `   - 執行日誌：${path.join(logDir, 'launchd-YYYY-MM-DD.log')}（自動保留 ${LOG_RETENTION_DAYS} 天；最新連結：${path.join(logDir, 'launchd-latest.log')}）`
+  );
   console.log(`   - 手動立即測試：launchctl kickstart -k gui/${uid}/${LABEL}`);
 
   return plistPath;

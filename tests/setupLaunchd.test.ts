@@ -11,6 +11,7 @@ vi.mock('child_process', () => ({
 
 import {
   LABEL,
+  LOG_RETENTION_DAYS,
   buildRunnerCommand,
   buildPlistContent,
   setupLaunchd,
@@ -22,7 +23,7 @@ describe('scripts/setupLaunchd', () => {
   });
 
   describe('buildRunnerCommand', () => {
-    it('includes stamp check, 20h cooldown check, lock dir, network check, and pnpm start:meta', () => {
+    it('includes stamp check, 20h cooldown check, lock dir, network check, 14-day log cleanup, and daily log redirection', () => {
       const cmd = buildRunnerCommand('/tmp/logs');
       expect(cmd).toContain('TODAY=$(date +%Y-%m-%d)');
       expect(cmd).toContain('NOW_TS=$(date +%s)');
@@ -31,12 +32,17 @@ describe('scripts/setupLaunchd', () => {
       expect(cmd).toContain('-lt 72000');
       expect(cmd).toContain('/tmp/logs/.launchd.lock');
       expect(cmd).toContain('https://www.facebook.com');
-      expect(cmd).toContain('pnpm start:meta');
+      expect(cmd).toContain(
+        `find "/tmp/logs" -maxdepth 1 -type f -name 'launchd-????-??-??.log' -mtime +${LOG_RETENTION_DAYS} -delete`
+      );
+      expect(cmd).toContain('ln -sf "launchd-$TODAY.log" "/tmp/logs/launchd-latest.log"');
+      expect(cmd).toContain('pnpm start:meta >> "/tmp/logs/launchd-$TODAY.log" 2>&1');
     });
 
-    it('supports custom minCooldownSeconds', () => {
-      const cmd = buildRunnerCommand('/tmp/logs', 3600);
+    it('supports custom minCooldownSeconds and logRetentionDays', () => {
+      const cmd = buildRunnerCommand('/tmp/logs', 3600, 30);
       expect(cmd).toContain('-lt 3600');
+      expect(cmd).toContain('-mtime +30 -delete');
     });
   });
 
