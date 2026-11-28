@@ -26,6 +26,7 @@ import {
   humanDelayMs,
   jitter,
   sleep,
+  formatLogTimestamp,
 } from '../scripts/utils';
 
 describe('scripts/utils', () => {
@@ -350,6 +351,24 @@ describe('scripts/utils', () => {
       const promise = sleep(250);
       vi.advanceTimersByTime(250);
       await expect(promise).resolves.toBeUndefined();
+    });
+  });
+
+  describe('formatLogTimestamp', () => {
+    it('formats a Date as zero-padded YYYY-MM-DD HH:mm:ss in local time', () => {
+      const date = new Date(2026, 2, 5, 8, 4, 9); // 2026-03-05 08:04:09 local
+      expect(formatLogTimestamp(date)).toBe('2026-03-05 08:04:09');
+    });
+
+    it('handles double-digit months, days, and afternoon 24-hour times', () => {
+      const date = new Date(2026, 10, 28, 16, 35, 59); // 2026-11-28 16:35:59 local
+      expect(formatLogTimestamp(date)).toBe('2026-11-28 16:35:59');
+    });
+
+    it('defaults to the current time when no argument is provided', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 10, 28, 9, 0, 5));
+      expect(formatLogTimestamp()).toBe('2026-11-28 09:00:05');
     });
   });
 });

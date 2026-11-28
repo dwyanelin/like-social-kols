@@ -5,6 +5,7 @@ import {
   validatePlatformSessions,
   humanDelayMs,
   jitter,
+  formatLogTimestamp,
 } from './utils';
 import 'dotenv/config';
 
@@ -186,7 +187,7 @@ export async function autoLikeFacebook({
               totalSessionClicks++;
               likesThisScroll++;
               console.log(
-                `👍 [FB] 成功點擊並確認第 ${clickCount} 個新貼文的讚 (本次總累計: ${totalSessionClicks}/${sessionCap})`
+                `[${formatLogTimestamp()}] 👍 [FB] 成功點擊並確認第 ${clickCount} 個新貼文的讚 (本次總累計: ${totalSessionClicks}/${sessionCap})`
               );
               await page.waitForTimeout(humanDelayMs());
             } else {
@@ -197,7 +198,7 @@ export async function autoLikeFacebook({
                   ? '畫面出現「系統暫時封鎖 / 限制活動」提示'
                   : `按讚狀態未變更 (${verifyResult.afterLabel})`);
               console.warn(
-                `⚠️ [FB] 按讚未生效！原因: ${reason} [連續被拒 ${consecutiveBlockedClicks}/2]`
+                `[${formatLogTimestamp()}] ⚠️ [FB] 按讚未生效！原因: ${reason} [連續被拒 ${consecutiveBlockedClicks}/2]`
               );
 
               if (consecutiveBlockedClicks >= 2) {
